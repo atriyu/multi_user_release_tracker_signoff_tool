@@ -11,8 +11,23 @@ from app.models.release_stakeholder import ReleaseStakeholder
 from app.schemas.signoff import SignOffCreate, SignOffResponse
 from app.dependencies import RequireAdminOrProductOwner, RequireAnyRole
 from app.utils.signoff_logic import compute_criteria_status
+from app.services.audit import AuditService
 
 router = APIRouter()
+
+
+def signoff_to_dict(signoff: SignOff, criteria_name: str = None, release_id: int = None) -> dict:
+    """Convert sign-off to dict for audit logging."""
+    return {
+        "id": signoff.id,
+        "criteria_id": signoff.criteria_id,
+        "criteria_name": criteria_name,
+        "release_id": release_id,
+        "signed_by_id": signoff.signed_by_id,
+        "status": signoff.status.value if signoff.status else None,
+        "comment": signoff.comment,
+        "link": signoff.link,
+    }
 
 
 @router.post(
@@ -74,6 +89,9 @@ async def create_sign_off(
                 detail=f"A test results link is required for '{criteria.name}'",
             )
 
+    # Initialize audit service
+    audit_service = AuditService(db)
+
     # Revoke any existing non-revoked sign-off by this user for this criteria
     existing_result = await db.execute(
         select(SignOff).where(
@@ -84,7 +102,17 @@ async def create_sign_off(
     )
     existing_signoff = existing_result.scalar_one_or_none()
     if existing_signoff:
+        old_signoff_data = signoff_to_dict(existing_signoff, criteria.name, criteria.release_id)
         existing_signoff.status = SignOffStatus.REVOKED
+        # Audit log: auto-revoke previous sign-off
+        await audit_service.log(
+            entity_type="sign_off",
+            entity_id=existing_signoff.id,
+            action="auto_revoke",
+            actor_id=current_user.id,
+            old_value=old_signoff_data,
+            new_value={**old_signoff_data, "status": "revoked"},
+        )
 
     # Create new sign-off
     db_signoff = SignOff(
@@ -96,6 +124,15 @@ async def create_sign_off(
     )
     db.add(db_signoff)
     await db.flush()  # Flush to get the signoff ID
+
+    # Audit log: sign-off created
+    await audit_service.log(
+        entity_type="sign_off",
+        entity_id=db_signoff.id,
+        action=f"sign_off:{sign_off.status.value}",
+        actor_id=current_user.id,
+        new_value=signoff_to_dict(db_signoff, criteria.name, criteria.release_id),
+    )
 
     # Compute new criteria status based on all stakeholder sign-offs
     new_status = await compute_criteria_status(db, criteria_id)
@@ -112,6 +149,17 @@ async def revoke_sign_off(
     current_user: RequireAnyRole,  # Changed - stakeholders can revoke their own sign-offs
     db: AsyncSession = Depends(get_db),
 ):
+    # Get criteria for audit logging
+    criteria_result = await db.execute(
+        select(ReleaseCriteria).where(ReleaseCriteria.id == criteria_id)
+    )
+    criteria = criteria_result.scalar_one_or_none()
+    if not criteria:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Criteria not found",
+        )
+
     # Find the most recent non-revoked sign-off by this user
     result = await db.execute(
         select(SignOff)
@@ -130,14 +178,24 @@ async def revoke_sign_off(
             detail="No sign-off found to revoke",
         )
 
+    # Capture old values for audit logging
+    old_signoff_data = signoff_to_dict(sign_off, criteria.name, criteria.release_id)
+
     # Mark as revoked
     sign_off.status = SignOffStatus.REVOKED
 
-    # Recompute criteria status based on remaining sign-offs
-    criteria_result = await db.execute(
-        select(ReleaseCriteria).where(ReleaseCriteria.id == criteria_id)
+    # Audit log: sign-off revoked
+    audit_service = AuditService(db)
+    await audit_service.log(
+        entity_type="sign_off",
+        entity_id=sign_off.id,
+        action="revoke",
+        actor_id=current_user.id,
+        old_value=old_signoff_data,
+        new_value={**old_signoff_data, "status": "revoked"},
     )
-    criteria = criteria_result.scalar_one()
+
+    # Recompute criteria status based on remaining sign-offs
     new_status = await compute_criteria_status(db, criteria_id)
     criteria.status = new_status
 

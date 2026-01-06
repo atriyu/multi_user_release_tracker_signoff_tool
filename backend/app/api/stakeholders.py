@@ -21,8 +21,20 @@ from app.schemas.release import (
 )
 from app.dependencies import RequireAdminOrProductOwner, RequireAnyRole
 from app.utils.signoff_logic import compute_criteria_status
+from app.services.audit import AuditService
 
 router = APIRouter()
+
+
+def stakeholder_to_dict(stakeholder: ReleaseStakeholder, user: User = None) -> dict:
+    """Convert stakeholder to dict for audit logging."""
+    return {
+        "id": stakeholder.id,
+        "release_id": stakeholder.release_id,
+        "user_id": stakeholder.user_id,
+        "user_name": user.name if user else None,
+        "user_email": user.email if user else None,
+    }
 
 # Canonical order for predefined criteria (must match releases.py)
 PREDEFINED_CRITERIA_ORDER = [
@@ -88,6 +100,12 @@ async def assign_stakeholders(
             detail="One or more user IDs are invalid",
         )
 
+    # Create a mapping of user_id to user for audit logging
+    user_map = {user.id: user for user in users}
+
+    # Initialize audit service
+    audit_service = AuditService(db)
+
     # Create stakeholder assignments (skip duplicates)
     created_stakeholders = []
     for user_id in stakeholder_data.user_ids:
@@ -103,6 +121,18 @@ async def assign_stakeholders(
 
         stakeholder = ReleaseStakeholder(release_id=release_id, user_id=user_id)
         db.add(stakeholder)
+        await db.flush()  # Flush to get the stakeholder ID
+
+        # Audit log: stakeholder assigned
+        user = user_map.get(user_id)
+        await audit_service.log(
+            entity_type="release_stakeholder",
+            entity_id=stakeholder.id,
+            action="assign",
+            actor_id=current_user.id,
+            new_value=stakeholder_to_dict(stakeholder, user),
+        )
+
         created_stakeholders.append(stakeholder)
 
     await db.commit()
@@ -144,7 +174,9 @@ async def remove_stakeholder(
 ):
     """Remove a stakeholder from a release"""
     result = await db.execute(
-        select(ReleaseStakeholder).where(
+        select(ReleaseStakeholder)
+        .options(selectinload(ReleaseStakeholder.user))
+        .where(
             ReleaseStakeholder.release_id == release_id,
             ReleaseStakeholder.user_id == user_id,
         )
@@ -155,6 +187,16 @@ async def remove_stakeholder(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Stakeholder assignment not found",
         )
+
+    # Audit log: stakeholder removed
+    audit_service = AuditService(db)
+    await audit_service.log(
+        entity_type="release_stakeholder",
+        entity_id=stakeholder.id,
+        action="remove",
+        actor_id=current_user.id,
+        old_value=stakeholder_to_dict(stakeholder, stakeholder.user),
+    )
 
     await db.delete(stakeholder)
     await db.commit()

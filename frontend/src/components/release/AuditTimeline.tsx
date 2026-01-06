@@ -1,13 +1,31 @@
 import { useReleaseHistory } from '@/hooks';
 import { format } from 'date-fns';
-import { CheckCircle, XCircle, RotateCcw, Edit, Plus, Trash2 } from 'lucide-react';
+import { CheckCircle, XCircle, RotateCcw, Edit, Plus, Trash2, UserPlus, UserMinus } from 'lucide-react';
 import type { AuditLogEntry } from '@/api/audit';
 
 interface AuditTimelineProps {
   releaseId: number;
 }
 
-function getActionIcon(action: string) {
+function getActionIcon(action: string, entityType: string) {
+  // Handle sign-off actions
+  if (action.startsWith('sign_off:approved')) {
+    return <CheckCircle className="h-4 w-4 text-green-500" />;
+  }
+  if (action.startsWith('sign_off:rejected')) {
+    return <XCircle className="h-4 w-4 text-red-500" />;
+  }
+  if (action === 'revoke' || action === 'auto_revoke') {
+    return <RotateCcw className="h-4 w-4 text-yellow-500" />;
+  }
+
+  // Handle stakeholder actions
+  if (entityType === 'release_stakeholder') {
+    if (action === 'assign') return <UserPlus className="h-4 w-4 text-green-500" />;
+    if (action === 'remove') return <UserMinus className="h-4 w-4 text-red-500" />;
+  }
+
+  // Handle standard CRUD actions
   switch (action) {
     case 'create':
       return <Plus className="h-4 w-4 text-green-500" />;
@@ -15,38 +33,47 @@ function getActionIcon(action: string) {
       return <Edit className="h-4 w-4 text-blue-500" />;
     case 'delete':
       return <Trash2 className="h-4 w-4 text-red-500" />;
-    case 'sign_off':
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
-    case 'reject':
-      return <XCircle className="h-4 w-4 text-red-500" />;
-    case 'revoke':
-      return <RotateCcw className="h-4 w-4 text-yellow-500" />;
     default:
       return <Edit className="h-4 w-4 text-gray-500" />;
   }
 }
 
 function getActionDescription(entry: AuditLogEntry): string {
-  const { entity_type, action, new_value } = entry;
+  const { entity_type, action, new_value, old_value } = entry;
 
   if (entity_type === 'release') {
     if (action === 'create') return 'Release created';
     if (action === 'update') {
-      if (new_value?.status) return `Status changed to ${new_value.status}`;
+      if (old_value?.status && new_value?.status && old_value.status !== new_value.status) {
+        return `Status changed: ${old_value.status} → ${new_value.status}`;
+      }
       return 'Release updated';
     }
+    if (action === 'delete') return 'Release deleted';
   }
 
   if (entity_type === 'release_criteria') {
     if (action === 'create') return `Criteria "${new_value?.name || 'unknown'}" added`;
-    if (action === 'update') return `Criteria updated`;
+    if (action === 'update') return `Criteria "${new_value?.name || old_value?.name || 'unknown'}" updated`;
+    if (action === 'delete') return `Criteria "${old_value?.name || 'unknown'}" deleted`;
   }
 
   if (entity_type === 'sign_off') {
+    const criteriaName = new_value?.criteria_name || old_value?.criteria_name || 'criteria';
     const status = new_value?.status;
-    if (status === 'approved') return `Criteria approved`;
-    if (status === 'rejected') return `Criteria rejected`;
-    if (status === 'revoked') return `Sign-off revoked`;
+    if (action.startsWith('sign_off:approved')) return `Approved "${criteriaName}"`;
+    if (action.startsWith('sign_off:rejected')) return `Rejected "${criteriaName}"`;
+    if (action === 'revoke') return `Revoked sign-off for "${criteriaName}"`;
+    if (action === 'auto_revoke') return `Previous sign-off auto-revoked for "${criteriaName}"`;
+    if (status === 'approved') return `Approved "${criteriaName}"`;
+    if (status === 'rejected') return `Rejected "${criteriaName}"`;
+    if (status === 'revoked') return `Revoked sign-off for "${criteriaName}"`;
+  }
+
+  if (entity_type === 'release_stakeholder') {
+    const userName = new_value?.user_name || old_value?.user_name || 'user';
+    if (action === 'assign') return `Stakeholder "${userName}" assigned`;
+    if (action === 'remove') return `Stakeholder "${userName}" removed`;
   }
 
   return `${entity_type} ${action}`;
@@ -69,7 +96,7 @@ export function AuditTimeline({ releaseId }: AuditTimelineProps) {
         <div key={entry.id} className="flex gap-3">
           <div className="flex flex-col items-center">
             <div className="p-1.5 rounded-full bg-muted">
-              {getActionIcon(entry.action)}
+              {getActionIcon(entry.action, entry.entity_type)}
             </div>
             {index < history.length - 1 && (
               <div className="w-px h-full bg-border mt-2" />
@@ -79,7 +106,7 @@ export function AuditTimeline({ releaseId }: AuditTimelineProps) {
             <p className="text-sm font-medium">{getActionDescription(entry)}</p>
             <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
               <span>{format(new Date(entry.timestamp), 'MMM d, yyyy HH:mm')}</span>
-              {entry.actor_id && <span>by User #{entry.actor_id}</span>}
+              {entry.actor_name && <span>by {entry.actor_name}</span>}
             </div>
             {entry.new_value?.comment && (
               <p className="text-sm text-muted-foreground mt-1 italic">

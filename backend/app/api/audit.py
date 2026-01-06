@@ -1,9 +1,11 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
+from sqlalchemy import select, or_, and_, cast, String
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.audit import AuditLog
+from app.models.user import User
 
 router = APIRouter()
 
@@ -13,25 +15,31 @@ async def get_release_history(
     release_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    # Get all audit logs related to this release
+    # Get all audit logs with actor relationship
     result = await db.execute(
         select(AuditLog)
-        .where(
-            (
-                (AuditLog.entity_type == "release") & (AuditLog.entity_id == release_id)
-            )
-            | (
-                (AuditLog.entity_type == "release_criteria")
-                & (AuditLog.new_value["release_id"].astext == str(release_id))
-            )
-            | (
-                (AuditLog.entity_type == "sign_off")
-                & (AuditLog.new_value["release_id"].astext == str(release_id))
-            )
-        )
+        .options(selectinload(AuditLog.actor))
         .order_by(AuditLog.timestamp.desc())
     )
-    logs = result.scalars().all()
+    all_logs = result.scalars().all()
+
+    # Filter in Python for SQLite compatibility
+    filtered_logs = []
+    for log in all_logs:
+        # Direct release match
+        if log.entity_type == "release" and log.entity_id == release_id:
+            filtered_logs.append(log)
+            continue
+
+        # Check new_value for release_id
+        if log.new_value and log.new_value.get("release_id") == release_id:
+            filtered_logs.append(log)
+            continue
+
+        # Check old_value for release_id (for delete operations)
+        if log.old_value and log.old_value.get("release_id") == release_id:
+            filtered_logs.append(log)
+            continue
 
     return [
         {
@@ -40,11 +48,12 @@ async def get_release_history(
             "entity_id": log.entity_id,
             "action": log.action,
             "actor_id": log.actor_id,
+            "actor_name": log.actor.name if log.actor else None,
             "old_value": log.old_value,
             "new_value": log.new_value,
             "timestamp": log.timestamp.isoformat(),
         }
-        for log in logs
+        for log in filtered_logs
     ]
 
 

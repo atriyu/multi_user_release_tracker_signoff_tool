@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.audit import AuditLog
 
@@ -11,9 +12,9 @@ class AuditService:
         entity_type: str,
         entity_id: int,
         action: str,
-        actor_id: int | None = None,
-        old_value: dict | None = None,
-        new_value: dict | None = None,
+        actor_id: Optional[int] = None,
+        old_value: Optional[dict] = None,
+        new_value: Optional[dict] = None,
     ):
         audit_entry = AuditLog(
             entity_type=entity_type,
@@ -32,7 +33,7 @@ class AuditService:
         entity_type: str,
         entity_id: int,
         new_value: dict,
-        actor_id: int | None = None,
+        actor_id: Optional[int] = None,
     ):
         return await self.log(
             entity_type=entity_type,
@@ -48,7 +49,7 @@ class AuditService:
         entity_id: int,
         old_value: dict,
         new_value: dict,
-        actor_id: int | None = None,
+        actor_id: Optional[int] = None,
     ):
         return await self.log(
             entity_type=entity_type,
@@ -64,7 +65,7 @@ class AuditService:
         entity_type: str,
         entity_id: int,
         old_value: dict,
-        actor_id: int | None = None,
+        actor_id: Optional[int] = None,
     ):
         return await self.log(
             entity_type=entity_type,
@@ -79,8 +80,8 @@ class AuditService:
         criteria_id: int,
         sign_off_id: int,
         action: str,
-        actor_id: int | None = None,
-        details: dict | None = None,
+        actor_id: Optional[int] = None,
+        details: Optional[dict] = None,
     ):
         return await self.log(
             entity_type="sign_off",

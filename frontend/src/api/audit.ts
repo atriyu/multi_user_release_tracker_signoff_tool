@@ -6,6 +6,7 @@ export interface AuditLogEntry {
   entity_id: number;
   action: string;
   actor_id: number | null;
+  actor_name: string | null;
   old_value: Record<string, unknown> | null;
   new_value: Record<string, unknown> | null;
   timestamp: string;

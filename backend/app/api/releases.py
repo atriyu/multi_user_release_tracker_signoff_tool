@@ -20,8 +20,33 @@ from app.schemas.release import (
     ReleaseCriteriaUpdate,
 )
 from app.dependencies import RequireAdmin, RequireAnyRole, get_current_user
+from app.services.audit import AuditService
 
 router = APIRouter()
+
+
+def release_to_dict(release: Release) -> dict:
+    """Convert release to dict for audit logging."""
+    return {
+        "id": release.id,
+        "product_id": release.product_id,
+        "version": release.version,
+        "name": release.name,
+        "status": release.status.value if release.status else None,
+        "target_date": str(release.target_date) if release.target_date else None,
+    }
+
+
+def criteria_to_dict(criteria: ReleaseCriteria) -> dict:
+    """Convert criteria to dict for audit logging."""
+    return {
+        "id": criteria.id,
+        "release_id": criteria.release_id,
+        "name": criteria.name,
+        "is_mandatory": criteria.is_mandatory,
+        "status": criteria.status.value if criteria.status else None,
+        "owner_id": criteria.owner_id,
+    }
 
 # Canonical order for predefined criteria
 PREDEFINED_CRITERIA_ORDER = [
@@ -206,6 +231,15 @@ async def create_release(
     )
     db.add(stakeholder)
 
+    # Audit log: release created
+    audit_service = AuditService(db)
+    await audit_service.log_create(
+        entity_type="release",
+        entity_id=db_release.id,
+        new_value=release_to_dict(db_release),
+        actor_id=current_user.id,
+    )
+
     await db.commit()
 
     # Reload with relationships
@@ -279,6 +313,9 @@ async def update_release(
     # Check permissions
     await check_release_permission(current_user, release_id, db)
 
+    # Capture old values for audit logging
+    old_values = release_to_dict(release)
+
     update_data = release_update.model_dump(exclude_unset=True)
 
     # Special handling for status changes to 'cancelled'
@@ -292,6 +329,23 @@ async def update_release(
 
     for field, value in update_data.items():
         setattr(release, field, value)
+
+    # Audit log: release updated (including status changes)
+    audit_service = AuditService(db)
+    new_values = release_to_dict(release)
+
+    # Determine action based on what changed
+    action = "update"
+    if 'status' in update_data:
+        action = f"status_change:{old_values['status']}->{new_values['status']}"
+
+    await audit_service.log_update(
+        entity_type="release",
+        entity_id=release.id,
+        old_value=old_values,
+        new_value=new_values,
+        actor_id=current_user.id,
+    )
 
     await db.commit()
     await db.refresh(release)
@@ -324,6 +378,15 @@ async def delete_release(
             detail=f"Can only delete releases in 'draft' status. Current status: {release.status.value}. Use cancel instead for releases in review.",
         )
 
+    # Audit log: release deleted
+    audit_service = AuditService(db)
+    await audit_service.log_delete(
+        entity_type="release",
+        entity_id=release.id,
+        old_value=release_to_dict(release),
+        actor_id=current_user.id,
+    )
+
     # Soft delete
     release.is_deleted = True
     await db.commit()
@@ -346,6 +409,17 @@ async def add_release_criteria(
 
     db_criteria = ReleaseCriteria(**criteria.model_dump(), release_id=release_id)
     db.add(db_criteria)
+    await db.flush()
+
+    # Audit log: criteria added
+    audit_service = AuditService(db)
+    await audit_service.log_create(
+        entity_type="release_criteria",
+        entity_id=db_criteria.id,
+        new_value={**criteria_to_dict(db_criteria), "release_id": release_id},
+        actor_id=current_user.id,
+    )
+
     await db.commit()
 
     # Reload with sign_offs
@@ -386,9 +460,22 @@ async def update_release_criteria(
             detail="Criteria not found",
         )
 
+    # Capture old values for audit logging
+    old_values = criteria_to_dict(criteria)
+
     update_data = criteria_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(criteria, field, value)
+
+    # Audit log: criteria updated
+    audit_service = AuditService(db)
+    await audit_service.log_update(
+        entity_type="release_criteria",
+        entity_id=criteria.id,
+        old_value=old_values,
+        new_value=criteria_to_dict(criteria),
+        actor_id=current_user.id,
+    )
 
     await db.commit()
     await db.refresh(criteria)
@@ -420,6 +507,15 @@ async def delete_release_criteria(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Criteria not found",
         )
+
+    # Audit log: criteria deleted
+    audit_service = AuditService(db)
+    await audit_service.log_delete(
+        entity_type="release_criteria",
+        entity_id=criteria.id,
+        old_value=criteria_to_dict(criteria),
+        actor_id=current_user.id,
+    )
 
     await db.delete(criteria)
     await db.commit()

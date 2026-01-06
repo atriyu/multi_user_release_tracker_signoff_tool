@@ -1,94 +1,210 @@
-# Multi-User Sign-Off Backend API Documentation
+# Backend API Documentation
 
-## Overview
-The backend now supports **multi-user approval workflow** where each assigned stakeholder must individually approve release criteria.
+Complete API reference for the Release Tracker backend.
 
-## New Endpoints
+## Base URL
 
-### Stakeholder Management
-
-#### 1. Assign Stakeholders to Release
 ```
-POST /api/releases/{release_id}/stakeholders
+http://localhost:8000/api
 ```
 
-**Auth**: Admin or Product Owner
+## Authentication
 
-**Request Body**:
+All endpoints require a user ID header:
+
+```
+X-User-Id: <user_id>
+```
+
+## Endpoints
+
+### Releases
+
+#### List Releases
+```
+GET /releases
+```
+
+**Query Parameters:**
+- `product_id` (optional): Filter by product
+- `status` (optional): Filter by status
+
+**Response:** `200 OK`
+```json
+[
+  {
+    "id": 1,
+    "product_id": 1,
+    "template_id": 1,
+    "version": "1.0.0",
+    "name": "Initial Release",
+    "description": "First release",
+    "status": "draft",
+    "target_date": "2024-01-15",
+    "created_at": "2024-01-01T00:00:00Z"
+  }
+]
+```
+
+#### Get Release Detail
+```
+GET /releases/{release_id}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": 1,
+  "product_id": 1,
+  "version": "1.0.0",
+  "name": "Initial Release",
+  "status": "in_review",
+  "criteria": [...],
+  "progress": {
+    "mandatory_total": 3,
+    "mandatory_approved": 2,
+    "mandatory_percent": 66.67,
+    "optional_total": 1,
+    "optional_approved": 0,
+    "optional_percent": 0,
+    "all_mandatory_approved": false
+  },
+  "stakeholders": [
+    {
+      "id": 1,
+      "release_id": 1,
+      "user_id": 2,
+      "assigned_at": "2024-01-02T00:00:00Z",
+      "user": {
+        "id": 2,
+        "name": "John Doe",
+        "email": "john@example.com"
+      }
+    }
+  ]
+}
+```
+
+#### Create Release
+```
+POST /releases
+```
+
+**Auth:** Admin or Product Owner
+
+**Request Body:**
+```json
+{
+  "product_id": 1,
+  "template_id": 1,
+  "version": "1.0.0",
+  "name": "Initial Release",
+  "description": "First release",
+  "target_date": "2024-01-15"
+}
+```
+
+#### Update Release
+```
+PATCH /releases/{release_id}
+```
+
+**Auth:** Admin or Product Owner
+
+**Request Body:**
+```json
+{
+  "status": "in_review",
+  "target_date": "2024-01-20"
+}
+```
+
+#### Delete Release
+```
+DELETE /releases/{release_id}
+```
+
+**Auth:** Admin or Product Owner
+
+---
+
+### Stakeholders
+
+#### Assign Stakeholders
+```
+POST /releases/{release_id}/stakeholders
+```
+
+**Auth:** Admin or Product Owner
+
+**Request Body:**
 ```json
 {
   "user_ids": [1, 2, 3]
 }
 ```
 
-**Response**: `201 Created`
+**Response:** `201 Created`
 ```json
 [
   {
     "id": 1,
     "release_id": 1,
     "user_id": 1,
-    "assigned_at": "2026-01-03T05:00:00Z"
+    "assigned_at": "2024-01-03T00:00:00Z"
   }
 ]
 ```
 
-**Notes**:
+**Notes:**
 - Skips duplicates automatically
 - Validates all user IDs exist
 
----
-
-#### 2. List Release Stakeholders
+#### List Stakeholders
 ```
-GET /api/releases/{release_id}/stakeholders
+GET /releases/{release_id}/stakeholders
 ```
 
-**Auth**: Admin or Product Owner
+**Auth:** Admin or Product Owner
 
-**Response**: `200 OK`
+**Response:** `200 OK`
 ```json
 [
   {
     "id": 1,
     "release_id": 1,
     "user_id": 1,
-    "assigned_at": "2026-01-03T05:00:00Z",
+    "assigned_at": "2024-01-03T00:00:00Z",
     "user": {
       "id": 1,
       "name": "John Doe",
-      "email": "john@example.com",
-      "role": "stakeholder"
+      "email": "john@example.com"
     }
   }
 ]
 ```
 
----
-
-#### 3. Remove Stakeholder from Release
+#### Remove Stakeholder
 ```
-DELETE /api/releases/{release_id}/stakeholders/{user_id}
+DELETE /releases/{release_id}/stakeholders/{user_id}
 ```
 
-**Auth**: Admin or Product Owner
+**Auth:** Admin or Product Owner
 
-**Response**: `204 No Content`
+**Response:** `204 No Content`
 
-**Notes**:
-- Removing a stakeholder does NOT delete their sign-offs (audit trail preserved)
-- Their sign-offs will no longer count toward criteria status computation
+**Notes:**
+- Removing a stakeholder preserves their sign-offs (audit trail)
+- Sign-offs no longer count toward criteria status
 
----
-
-#### 4. Get Sign-Off Matrix
+#### Get Sign-Off Matrix
 ```
-GET /api/releases/{release_id}/sign-off-matrix
+GET /releases/{release_id}/sign-off-matrix
 ```
 
-**Auth**: Any authenticated user
+**Auth:** Any authenticated user
 
-**Response**: `200 OK`
+**Response:** `200 OK`
 ```json
 {
   "release_id": 1,
@@ -96,14 +212,7 @@ GET /api/releases/{release_id}/sign-off-matrix
     {
       "id": 1,
       "name": "John Doe",
-      "email": "john@example.com",
-      "role": "stakeholder"
-    },
-    {
-      "id": 2,
-      "name": "Jane Smith",
-      "email": "jane@example.com",
-      "role": "stakeholder"
+      "email": "john@example.com"
     }
   ],
   "criteria_matrix": [
@@ -118,18 +227,9 @@ GET /api/releases/{release_id}/sign-off-matrix
           "user_name": "John Doe",
           "user_email": "john@example.com",
           "status": "approved",
-          "comment": "Security checks passed",
-          "link": null,
-          "signed_at": "2026-01-02T10:00:00Z"
-        },
-        {
-          "user_id": 2,
-          "user_name": "Jane Smith",
-          "user_email": "jane@example.com",
-          "status": "approved",
           "comment": "LGTM",
           "link": null,
-          "signed_at": "2026-01-02T11:00:00Z"
+          "signed_at": "2024-01-02T10:00:00Z"
         }
       ]
     }
@@ -137,84 +237,52 @@ GET /api/releases/{release_id}/sign-off-matrix
 }
 ```
 
-**Notes**:
-- This is the primary endpoint for building the sign-off matrix UI
-- Shows complete picture: which stakeholders have signed off on which criteria
-- `status` can be: `"approved"`, `"rejected"`, or `null` (not signed off yet)
-
 ---
 
-## Modified Endpoints
+### Sign-offs
 
-### 1. Create Sign-Off
+#### Create Sign-Off
 ```
-POST /api/criteria/{criteria_id}/sign-off
-```
-
-**Auth**: ANY authenticated user (changed from Admin/Product Owner)
-
-**Behavior Changes**:
-- ✅ Validates user is assigned as stakeholder to the release
-- ✅ Auto-revokes user's previous sign-off for this criteria (if exists)
-- ✅ Computes new criteria status based on ALL stakeholder sign-offs
-- ✅ Returns `403 Forbidden` if user not assigned as stakeholder
-
-**Request/Response**: Unchanged
-
----
-
-### 2. Revoke Sign-Off
-```
-DELETE /api/criteria/{criteria_id}/sign-off
+POST /criteria/{criteria_id}/sign-off
 ```
 
-**Auth**: ANY authenticated user (changed from Admin/Product Owner)
+**Auth:** Any authenticated user (must be assigned stakeholder)
 
-**Behavior Changes**:
-- ✅ User can only revoke their OWN sign-off
-- ✅ Recomputes criteria status after revocation
-- ✅ Criteria may go back to "pending" if not all stakeholders approved
-
----
-
-### 3. Get Release Detail
-```
-GET /api/releases/{release_id}
-```
-
-**Response Changes**:
+**Request Body:**
 ```json
 {
-  "id": 1,
-  "...": "...",
-  "stakeholders": [
-    {
-      "id": 1,
-      "release_id": 1,
-      "user_id": 1,
-      "assigned_at": "2026-01-03T05:00:00Z",
-      "user": {
-        "id": 1,
-        "name": "John Doe",
-        "email": "john@example.com",
-        "role": "stakeholder"
-      }
-    }
-  ]
+  "status": "approved",
+  "comment": "Looks good!",
+  "link": "https://example.com/evidence"
 }
 ```
 
-**Notes**:
-- Now includes `stakeholders` array
-- Stakeholders are eagerly loaded with user details
+**Response:** `201 Created`
+
+**Behavior:**
+- Validates user is assigned as stakeholder
+- Auto-revokes previous sign-off for this criteria (if exists)
+- Recomputes criteria status based on all stakeholder sign-offs
+- Returns `403 Forbidden` if user not assigned as stakeholder
+
+#### Revoke Sign-Off
+```
+DELETE /criteria/{criteria_id}/sign-off
+```
+
+**Auth:** Any authenticated user (own sign-off only)
+
+**Response:** `204 No Content`
+
+**Behavior:**
+- User can only revoke their OWN sign-off
+- Recomputes criteria status after revocation
 
 ---
 
-## Criteria Status Computation
+### Criteria Status Logic
 
-### New Logic (Strict Multi-User Approval)
-
-A criteria's status is **computed** based on all stakeholder sign-offs:
+The computed status for each criteria:
 
 | Condition | Status |
 |-----------|--------|
@@ -222,107 +290,288 @@ A criteria's status is **computed** based on all stakeholder sign-offs:
 | ALL stakeholders approved | `approved` |
 | Otherwise | `pending` |
 
-**Examples**:
+**Examples:**
 
 | Stakeholder A | Stakeholder B | Stakeholder C | Result |
 |--------------|--------------|--------------|---------|
 | approved | approved | approved | **approved** |
-| approved | approved | (not signed) | **pending** |
+| approved | approved | (pending) | **pending** |
 | approved | rejected | approved | **rejected** |
-| (not signed) | (not signed) | (not signed) | **pending** |
 
 ---
 
-## Database Changes
+### Release Criteria
 
-### New Table: `release_stakeholders`
+#### Add Criteria
+```
+POST /releases/{release_id}/criteria
+```
 
-```sql
-CREATE TABLE release_stakeholders (
-    id INTEGER PRIMARY KEY,
-    release_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (release_id) REFERENCES releases(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE (release_id, user_id)
-);
+**Auth:** Admin or Product Owner
+
+**Request Body:**
+```json
+{
+  "name": "Security Review",
+  "description": "Security team review",
+  "is_mandatory": true,
+  "owner_id": 1,
+  "order": 1
+}
+```
+
+#### Update Criteria
+```
+PATCH /criteria/{criteria_id}
+```
+
+**Auth:** Admin or Product Owner
+
+#### Delete Criteria
+```
+DELETE /criteria/{criteria_id}
+```
+
+**Auth:** Admin or Product Owner
+
+---
+
+### User Permission Management
+
+#### Grant Product Owner Permission
+```
+POST /users/{user_id}/grant-product-owner
+```
+
+**Auth:** Admin only
+
+**Description:** Grants Product Owner permission for ALL products.
+
+**Response:** `200 OK`
+```json
+{
+  "message": "Product owner permission granted successfully"
+}
+```
+
+#### Revoke Product Owner Permission
+```
+DELETE /users/{user_id}/revoke-product-owner
+```
+
+**Auth:** Admin only
+
+**Description:** Revokes ALL Product Owner permissions.
+
+**Response:** `200 OK`
+```json
+{
+  "message": "Product owner permission revoked successfully"
+}
+```
+
+#### Check Product Owner Status
+```
+GET /users/{user_id}/is-product-owner
+```
+
+**Auth:** Admin only
+
+**Response:** `200 OK`
+```json
+{
+  "is_product_owner": true
+}
 ```
 
 ---
 
-## Migration Notes
+### Product Permissions
 
-### Existing Data
-The migration automatically assigns stakeholders based on existing sign-offs:
-- Users who have previously signed off on any criteria in a release are assigned as stakeholders
+#### Grant Product Permissions
+```
+POST /products/{product_id}/permissions
+```
 
-### Backward Compatibility
-- Existing sign-offs are preserved
-- Criteria status is recomputed using new logic
-- No frontend changes required immediately (graceful degradation)
+**Auth:** Admin only
+
+**Request Body:**
+```json
+{
+  "user_ids": [1, 2, 3],
+  "permission_type": "product_owner"
+}
+```
+
+#### List Product Permissions
+```
+GET /products/{product_id}/permissions
+```
+
+**Auth:** Admin only
+
+#### Revoke Product Permission
+```
+DELETE /products/{product_id}/permissions/{user_id}
+```
+
+**Auth:** Admin only
 
 ---
 
-## Frontend Integration Checklist
+### Users
 
-### Required Changes
-1. ✅ Add stakeholder assignment UI to release creation/edit
-2. ✅ Build sign-off matrix view (criteria × stakeholders grid)
-3. ✅ Update criteria checklist to show multi-user status
-4. ✅ Update dashboard to show per-stakeholder progress
-5. ✅ Add "My Releases" filter for stakeholders
-
-### API Client Functions Needed
-```typescript
-// Stakeholder management
-assignStakeholders(releaseId: number, userIds: number[])
-removeStakeholder(releaseId: number, userId: number)
-getStakeholders(releaseId: number)
-
-// Sign-off matrix
-getSignOffMatrix(releaseId: number)
+#### List Users
+```
+GET /users
 ```
 
-### TypeScript Types Needed
-```typescript
-interface ReleaseStakeholder {
-  id: number;
-  release_id: number;
-  user_id: number;
-  assigned_at: string;
-  user: StakeholderUser;
-}
+**Query Parameters:**
+- `include_inactive` (optional): Include inactive users
 
-interface StakeholderUser {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-}
+#### Create User
+```
+POST /users
+```
 
-interface SignOffMatrix {
-  release_id: number;
-  stakeholders: StakeholderUser[];
-  criteria_matrix: CriteriaSignOffRow[];
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "name": "New User",
+  "is_admin": false
 }
+```
 
-interface CriteriaSignOffRow {
-  criteria_id: number;
-  criteria_name: string;
-  is_mandatory: boolean;
-  computed_status: CriteriaStatus;
-  stakeholder_signoffs: StakeholderSignOffStatus[];
+#### Update User
+```
+PATCH /users/{user_id}
+```
+
+#### Get Current User
+```
+GET /users/me
+```
+
+---
+
+### Products
+
+#### List Products
+```
+GET /products
+```
+
+#### Create Product
+```
+POST /products
+```
+
+**Auth:** Admin only
+
+#### Update Product
+```
+PATCH /products/{product_id}
+```
+
+**Auth:** Admin only
+
+---
+
+### Templates
+
+#### List Templates
+```
+GET /templates
+```
+
+#### Create Template
+```
+POST /templates
+```
+
+**Auth:** Admin or Product Owner
+
+#### Update Template
+```
+PATCH /templates/{template_id}
+```
+
+**Auth:** Admin or Product Owner
+
+---
+
+### Dashboard
+
+#### Get Summary
+```
+GET /dashboard/summary
+```
+
+**Response:** `200 OK`
+```json
+{
+  "total": 10,
+  "by_status": {
+    "draft": 2,
+    "in_review": 3,
+    "approved": 2,
+    "released": 2,
+    "cancelled": 1
+  }
 }
+```
 
-interface StakeholderSignOffStatus {
-  user_id: number;
-  user_name: string;
-  user_email: string;
-  status: 'approved' | 'rejected' | null;
-  comment: string | null;
-  link: string | null;
-  signed_at: string | null;
+#### Get Pending Sign-offs
+```
+GET /dashboard/pending-signoffs
+```
+
+Returns criteria awaiting sign-off from the current user.
+
+---
+
+### Audit Log
+
+#### List Audit Entries
+```
+GET /audit
+```
+
+**Query Parameters:**
+- `entity_type` (optional): Filter by entity type
+- `action` (optional): Filter by action
+- `entity_id` (optional): Filter by entity ID
+
+---
+
+## Error Responses
+
+### 400 Bad Request
+```json
+{
+  "detail": "Invalid request body"
+}
+```
+
+### 401 Unauthorized
+```json
+{
+  "detail": "Missing X-User-Id header"
+}
+```
+
+### 403 Forbidden
+```json
+{
+  "detail": "Insufficient permissions"
+}
+```
+
+### 404 Not Found
+```json
+{
+  "detail": "Resource not found"
 }
 ```
 
@@ -330,180 +579,40 @@ interface StakeholderSignOffStatus {
 
 ## Testing the API
 
-### 1. Assign Stakeholders
+### cURL Examples
+
+**Assign Stakeholders:**
 ```bash
-curl -X POST -H "X-User-Id: 1" -H "Content-Type: application/json" \
-  -d '{"user_ids": [1, 2, 3]}' \
-  http://localhost:8000/api/releases/1/stakeholders
+curl -X POST http://localhost:8000/api/releases/1/stakeholders \
+  -H "X-User-Id: 1" \
+  -H "Content-Type: application/json" \
+  -d '{"user_ids": [1, 2, 3]}'
 ```
 
-### 2. Get Sign-Off Matrix
+**Get Sign-Off Matrix:**
 ```bash
-curl -H "X-User-Id: 1" \
-  http://localhost:8000/api/releases/1/sign-off-matrix
+curl http://localhost:8000/api/releases/1/sign-off-matrix \
+  -H "X-User-Id: 1"
 ```
 
-### 3. Create Sign-Off (as stakeholder)
+**Create Sign-Off:**
 ```bash
-curl -X POST -H "X-User-Id: 2" -H "Content-Type: application/json" \
-  -d '{"status": "approved", "comment": "Looks good!"}' \
-  http://localhost:8000/api/criteria/1/sign-off
+curl -X POST http://localhost:8000/api/criteria/1/sign-off \
+  -H "X-User-Id: 2" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "approved", "comment": "LGTM"}'
 ```
 
----
-
----
-
-## User Permission Management
-
-### New Endpoints (Added 2026-01-04)
-
-#### 1. Grant Product Owner Permission
-```
-POST /api/users/{user_id}/grant-product-owner
-```
-
-**Auth**: Admin only
-
-**Description**: Grants Product Owner permission to a user for ALL products. This creates `ProductPermission` records for every product in the system.
-
-**Response**: `200 OK`
-```json
-{
-  "message": "Product owner permission granted successfully"
-}
-```
-
-**Notes**:
-- Auto-syncs user's role to `product_owner`
-- Creates permissions for all existing products
-- Skips if user already has permission for a product
-- Returns error if user is already an admin
-
-**Example**:
+**Grant Product Owner Permission:**
 ```bash
-curl -X POST -H "X-User-Id: 1" \
-  http://localhost:8000/api/users/2/grant-product-owner
+curl -X POST http://localhost:8000/api/users/2/grant-product-owner \
+  -H "X-User-Id: 1"
 ```
 
 ---
 
-#### 2. Revoke Product Owner Permission
-```
-DELETE /api/users/{user_id}/revoke-product-owner
-```
+## Interactive Documentation
 
-**Auth**: Admin only
-
-**Description**: Revokes ALL Product Owner permissions from a user by deleting all their `ProductPermission` records.
-
-**Response**: `200 OK`
-```json
-{
-  "message": "Product owner permission revoked successfully"
-}
-```
-
-**Notes**:
-- Deletes all product permissions for the user
-- Auto-syncs user's role back to `stakeholder`
-- Preserves historical sign-offs
-- Cannot revoke permissions from system admins
-
-**Example**:
-```bash
-curl -X DELETE -H "X-User-Id: 1" \
-  http://localhost:8000/api/users/2/revoke-product-owner
-```
-
----
-
-#### 3. Check Product Owner Status
-```
-GET /api/users/{user_id}/is-product-owner
-```
-
-**Auth**: Admin only
-
-**Description**: Checks if a user has Product Owner permission (i.e., has any product permissions).
-
-**Response**: `200 OK`
-```json
-{
-  "is_product_owner": true
-}
-```
-
-**Notes**:
-- Returns `true` if user has permissions for at least one product
-- Returns `false` if user has no product permissions
-- System admins are NOT considered product owners (they have higher permissions)
-
-**Example**:
-```bash
-curl -H "X-User-Id: 1" \
-  http://localhost:8000/api/users/2/is-product-owner
-```
-
----
-
-## Permission System Summary
-
-### User Types
-
-| Type | Implemented Via | Permissions |
-|------|-----------------|-------------|
-| **System Admin** | `User.is_admin = true` | Full access to everything |
-| **Product Owner** | `ProductPermission` records | Manage releases, templates, criteria for all products |
-| **Stakeholder/User** | Default | Can be assigned to releases and sign off on criteria |
-
-### Permission Flow
-
-```
-1. Admin creates user → is_admin = false, no permissions
-2. Admin grants Product Owner permission → ProductPermission records created for ALL products
-3. User can now manage releases/templates
-4. Admin revokes permission → ProductPermission records deleted
-5. User returns to regular stakeholder role
-```
-
-### Auto-Sync Behavior
-
-The deprecated `role` field is automatically synced:
-- `is_admin = true` → `role = 'admin'`
-- Has product permissions → `role = 'product_owner'`
-- No permissions → `role = 'stakeholder'`
-
----
-
-## Next Steps
-
-1. **Email Notifications** (Future)
-   - Notify stakeholders when assigned to release
-   - Notify when all criteria ready for their sign-off
-   - Notify when release approved
-   - Notify user when granted Product Owner permission
-
-2. **Permission Audit Log** (Future)
-   - Log when permissions are granted/revoked
-   - Show who granted the permission
-   - Track permission history
-
-3. **Per-Product Permissions** (Future Enhancement)
-   - Allow granting Product Owner permission for specific products only
-   - More granular control
-   - Useful for large organizations with many products
-
----
-
-## Backend Completion Status
-
-✅ Database schema (100%)
-✅ Models and relationships (100%)
-✅ Business logic (100%)
-✅ Multi-user approval endpoints (100%)
-✅ User permission endpoints (100%)
-✅ Route registration (100%)
-✅ Testing (100%)
-
-**Backend is production-ready for multi-user approval workflow with permission management!**
+Access the interactive API documentation at:
+- **Swagger UI:** http://localhost:8000/docs
+- **ReDoc:** http://localhost:8000/redoc

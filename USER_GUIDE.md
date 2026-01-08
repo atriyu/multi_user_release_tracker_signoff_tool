@@ -162,6 +162,21 @@ Templates define sign-off criteria that will be copied to each release.
 
 3. Click **Create Template**
 
+### Predefined Criteria Order
+
+The system includes predefined criteria that appear in a canonical order:
+
+1. Content Review
+2. Bug Verification
+3. Smoke & Extended Smoke Regression
+4. Full Regression
+5. CPT Sign-off
+6. Pre-Prod Monitoring incl. Crash Analysis
+7. Production Monitoring
+8. Security Audit
+
+Custom criteria are sorted alphabetically after predefined criteria.
+
 ---
 
 ## Managing Users & Permissions
@@ -229,6 +244,8 @@ Choose the product for this release.
 ### Step 4: Create
 Click **Create Release** to create and open the release detail page.
 
+**Note:** You are automatically assigned as a stakeholder when you create a release.
+
 ---
 
 ## Stakeholder Assignment
@@ -281,6 +298,15 @@ Draft → In Review → Approved → Released
 | **Released** | Deployed to production |
 | **Cancelled** | Release cancelled |
 
+### Deleting vs Cancelling
+
+| Action | When Available | Behavior |
+|--------|----------------|----------|
+| **Delete** | Draft releases only | Soft delete - removes from list |
+| **Cancel** | In Review or Approved releases | Status changes to Cancelled |
+
+Draft releases can be deleted. Once a release moves to "In Review", it can only be cancelled, not deleted.
+
 ### Starting Review
 
 1. Open a release in **Draft** status
@@ -292,12 +318,19 @@ Draft → In Review → Approved → Released
 #### To Approve:
 1. Click **Approve** or click on your cell in the sign-off matrix
 2. Add optional comment
-3. Confirm
+3. For certain criteria, a **test results link is required**:
+   - Smoke & Extended Smoke Regression
+   - Full Regression
+   - CPT Sign-off
+4. Confirm
 
 #### To Reject:
 1. Click **Reject**
 2. Enter reason (required)
 3. Confirm
+
+#### Auto-Revoke Behavior
+When you submit a new sign-off, any previous non-revoked sign-off you made for that criteria is automatically revoked. This ensures only your latest decision counts.
 
 #### To Revoke:
 1. Click **Revoke** on your previous sign-off
@@ -388,11 +421,22 @@ Sections:
 
 **Navigation:** Release Detail → Activity section
 
-Shows recent activity:
-- Release created/updated
-- Criteria added
-- Sign-offs recorded
-- Status changes
+Shows recent activity including:
+
+| Event Type | Actions Logged |
+|------------|----------------|
+| **Release** | Created, updated, status changes, deleted |
+| **Criteria** | Added, updated, deleted |
+| **Sign-offs** | Approved, rejected, revoked, auto-revoked |
+| **Stakeholders** | Assigned, removed |
+
+Each activity entry shows:
+- Action icon (colored by type)
+- Description of the action
+- Timestamp
+- Actor name (who performed the action)
+- Optional comment (for sign-offs)
+- Link to test results (if provided)
 
 ### Full Audit Log
 

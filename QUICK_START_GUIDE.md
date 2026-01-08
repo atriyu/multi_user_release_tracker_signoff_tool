@@ -78,10 +78,12 @@ Use the user dropdown in the top-right corner to switch between users:
 
 ### Step 3: Assign Stakeholders
 
+**Note:** You are automatically assigned as a stakeholder when you create a release.
+
 1. Open the release detail page
 2. Find the **Stakeholders** card
 3. Click **Assign Stakeholder** (requires admin or product owner)
-4. Select users and click **Assign**
+4. Select additional users and click **Assign**
 
 ### Step 4: Start Review
 
@@ -95,7 +97,8 @@ Use the user dropdown in the top-right corner to switch between users:
 3. In the **Sign-Off Matrix**, click on a cell in your column
 4. Choose **Approve** or **Reject**
 5. Add an optional comment
-6. Submit
+6. For test-related criteria (Regression, CPT), provide a **test results link**
+7. Submit
 
 ### Step 6: Approve & Release
 
@@ -140,8 +143,10 @@ curl http://localhost:8000/api/releases/1/sign-off-matrix \
 curl -X POST http://localhost:8000/api/criteria/1/sign-off \
   -H "X-User-Id: 2" \
   -H "Content-Type: application/json" \
-  -d '{"status": "approved", "comment": "LGTM"}'
+  -d '{"status": "approved", "comment": "LGTM", "link": "https://test-results.example.com/123"}'
 ```
+
+**Note:** The `link` field is required when approving Regression or CPT criteria.
 
 ## Troubleshooting
 

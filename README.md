@@ -9,7 +9,7 @@ A comprehensive release management application with multi-user approval workflow
 - **Product-Based Permissions**: Admin and product owner roles with granular access control
 - **Release Workflow**: Draft → In Review → Approved → Released status progression
 - **Template System**: Create reusable criteria templates for consistent release processes
-- **Audit Trail**: Complete history of all actions and sign-offs
+- **Audit Trail**: Complete history of all actions including sign-offs, stakeholder changes, criteria modifications, and status transitions
 
 ## Tech Stack
 
@@ -158,11 +158,16 @@ GET /api/releases/{release_id}/sign-off-matrix
 ```bash
 # Create sign-off
 POST /api/criteria/{criteria_id}/sign-off
-Body: { "status": "approved", "comment": "LGTM" }
+Body: { "status": "approved", "comment": "LGTM", "link": "https://test-results.example.com/run/123" }
 
 # Revoke sign-off
 DELETE /api/criteria/{criteria_id}/sign-off
 ```
+
+**Note:** The `link` field is required for specific criteria types:
+- Smoke & Extended Smoke Regression
+- Full Regression
+- CPT Sign-off
 
 ### User Permissions
 
@@ -175,6 +180,16 @@ DELETE /api/users/{user_id}/revoke-product-owner
 
 # Check product owner status
 GET /api/users/{user_id}/is-product-owner
+```
+
+### Audit Logs
+
+```bash
+# Get release activity history
+GET /api/releases/{release_id}/history
+
+# Query all audit logs
+GET /api/audit?entity_type=release&action=update&limit=50
 ```
 
 ## Authentication

@@ -37,6 +37,7 @@ export function useUpdateRelease() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['releases'] });
       queryClient.invalidateQueries({ queryKey: ['release', id] });
+      queryClient.invalidateQueries({ queryKey: ['audit', 'release', id] });
     },
   });
 }
@@ -61,6 +62,7 @@ export function useAddReleaseCriteria() {
     onSuccess: (_, { releaseId }) => {
       queryClient.invalidateQueries({ queryKey: ['release', releaseId] });
       queryClient.invalidateQueries({ queryKey: ['releases'] });
+      queryClient.invalidateQueries({ queryKey: ['audit', 'release', releaseId] });
     },
   });
 }
@@ -77,6 +79,7 @@ export function useUpdateReleaseCriteria() {
     onSuccess: (_, { releaseId }) => {
       queryClient.invalidateQueries({ queryKey: ['release', releaseId] });
       queryClient.invalidateQueries({ queryKey: ['releases'] });
+      queryClient.invalidateQueries({ queryKey: ['audit', 'release', releaseId] });
     },
   });
 }
@@ -90,6 +93,7 @@ export function useDeleteReleaseCriteria() {
     onSuccess: (_, { releaseId }) => {
       queryClient.invalidateQueries({ queryKey: ['release', releaseId] });
       queryClient.invalidateQueries({ queryKey: ['releases'] });
+      queryClient.invalidateQueries({ queryKey: ['audit', 'release', releaseId] });
     },
   });
 }

@@ -21,6 +21,7 @@ export function useCreateSignOff() {
       queryClient.invalidateQueries({ queryKey: ['release'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['signOffMatrix'] });
+      queryClient.invalidateQueries({ queryKey: ['audit'] });
     },
   });
 }
@@ -34,6 +35,7 @@ export function useRevokeSignOff() {
       queryClient.invalidateQueries({ queryKey: ['release'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['signOffMatrix'] });
+      queryClient.invalidateQueries({ queryKey: ['audit'] });
     },
   });
 }

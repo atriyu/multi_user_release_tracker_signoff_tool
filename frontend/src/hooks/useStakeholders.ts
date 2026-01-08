@@ -19,6 +19,7 @@ export function useAssignStakeholders() {
       queryClient.invalidateQueries({ queryKey: ['stakeholders', variables.releaseId] });
       queryClient.invalidateQueries({ queryKey: ['release', variables.releaseId] });
       queryClient.invalidateQueries({ queryKey: ['signOffMatrix', variables.releaseId] });
+      queryClient.invalidateQueries({ queryKey: ['audit'] });
     },
   });
 }
@@ -33,6 +34,7 @@ export function useRemoveStakeholder() {
       queryClient.invalidateQueries({ queryKey: ['stakeholders', variables.releaseId] });
       queryClient.invalidateQueries({ queryKey: ['release', variables.releaseId] });
       queryClient.invalidateQueries({ queryKey: ['signOffMatrix', variables.releaseId] });
+      queryClient.invalidateQueries({ queryKey: ['audit'] });
     },
   });
 }

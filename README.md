@@ -127,12 +127,22 @@ release-tracker/
 
 ### Workflow Steps
 
-1. **Create Release**: From a product template or blank
+1. **Create Release**: From a product template or blank (with optional candidate build)
 2. **Assign Stakeholders**: Add users who need to sign off
 3. **Start Review**: Move release to "In Review" status
 4. **Collect Sign-offs**: Each stakeholder approves/rejects criteria
 5. **Approve Release**: When all mandatory criteria are approved
 6. **Mark Released**: After deployment
+
+### Release Fields
+
+| Field | Required | Editable | Description |
+|-------|----------|----------|-------------|
+| Version | Yes | No | Release version number |
+| Name | Yes | No | Release name/title |
+| Target Date | No | Draft, In Review | Expected release date |
+| Candidate Build | No | Draft, In Review | Build identifier for tracking |
+| Description | No | No | Release notes |
 
 ## API Endpoints
 

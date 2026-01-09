@@ -239,12 +239,24 @@ Choose the product for this release.
 | Version | Yes | e.g., "2.1.0" |
 | Release Name | Yes | e.g., "Q1 2024 Release" |
 | Target Date | No | Expected release date |
+| Candidate Build | No | Build identifier (e.g., "build-2024.01.15-abc123") |
 | Description | No | Release notes |
 
 ### Step 4: Create
 Click **Create Release** to create and open the release detail page.
 
 **Note:** You are automatically assigned as a stakeholder when you create a release.
+
+### Editing Release Details
+
+The **Target Date** and **Candidate Build** can be edited after creation:
+
+1. Open the release detail page
+2. Click the pencil icon next to Target Date or Build
+3. Enter the new value
+4. Click the checkmark to save
+
+These fields are editable while the release is in **Draft** or **In Review** status.
 
 ---
 
@@ -396,7 +408,7 @@ The computed status for each criteria follows strict multi-user approval:
 **Navigation:** Releases (`/releases`)
 
 Features:
-- **Search**: Filter by name or version
+- **Search**: Filter by name, version, or candidate build
 - **Status filter**: Show specific statuses
 - **Product filter**: Show releases for a product
 
@@ -405,7 +417,7 @@ Features:
 **Navigation:** Click on any release
 
 Sections:
-1. **Header**: Name, version, status, actions
+1. **Header**: Name, version, status, target date, candidate build, actions
 2. **Description**: Release notes
 3. **Sign-off Progress**: Visual progress bars
 4. **Criteria Manager**: Add/edit criteria (if permitted)

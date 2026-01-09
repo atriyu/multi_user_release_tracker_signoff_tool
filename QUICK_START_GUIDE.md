@@ -73,7 +73,9 @@ Use the user dropdown in the top-right corner to switch between users:
 1. Navigate to **Releases** > **New Release**
 2. Select a product
 3. Choose a template (optional)
-4. Enter version and name
+4. Enter version, name, and optionally:
+   - **Target Date**: Expected release date
+   - **Candidate Build**: Build identifier (e.g., "build-2024.01.15-abc123")
 5. Click **Create Release**
 
 ### Step 3: Assign Stakeholders
@@ -89,6 +91,8 @@ Use the user dropdown in the top-right corner to switch between users:
 
 1. Click **Start Review** to begin the sign-off process
 2. Status changes from Draft to In Review
+
+**Tip:** You can edit the **Target Date** and **Candidate Build** by clicking the pencil icon in the release header (available during Draft and In Review stages).
 
 ### Step 5: Collect Sign-offs
 

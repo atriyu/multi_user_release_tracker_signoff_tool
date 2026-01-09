@@ -8,6 +8,7 @@ interface CreateReleasePayload {
   name: string;
   description?: string;
   target_date?: string;
+  candidate_build?: string;
 }
 
 interface UpdateReleasePayload {
@@ -16,6 +17,7 @@ interface UpdateReleasePayload {
   description?: string;
   status?: ReleaseStatus;
   target_date?: string;
+  candidate_build?: string;
 }
 
 export async function getReleases(params?: {

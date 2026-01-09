@@ -43,6 +43,7 @@ class Release(Base):
         Enum(ReleaseStatus, native_enum=False), default=ReleaseStatus.DRAFT
     )
     target_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    candidate_build: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     released_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_by_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("users.id"), nullable=True

@@ -54,23 +54,47 @@ export function Dashboard() {
             {pendingLoading ? (
               <p className="text-muted-foreground">Loading...</p>
             ) : pending && pending.length > 0 ? (
-              <ul className="space-y-2">
-                {pending.slice(0, 5).map((item) => (
-                  <li key={item.criteria_id}>
-                    <Link
-                      to={`/releases/${item.release_id}`}
-                      className="flex items-center justify-between p-2 rounded hover:bg-muted"
-                    >
-                      <span className="text-sm">{item.criteria_name}</span>
-                      {item.is_mandatory && (
-                        <span className="text-xs text-destructive">Required</span>
-                      )}
-                    </Link>
-                  </li>
-                ))}
-                {pending.length > 5 && (
+              <ul className="space-y-3">
+                {(() => {
+                  // Group by release
+                  const grouped = pending.reduce((acc, item) => {
+                    if (!acc[item.release_id]) {
+                      acc[item.release_id] = {
+                        release_id: item.release_id,
+                        release_name: item.release_name,
+                        criteria: [],
+                        hasRequired: false,
+                      };
+                    }
+                    acc[item.release_id].criteria.push(item);
+                    if (item.is_mandatory) acc[item.release_id].hasRequired = true;
+                    return acc;
+                  }, {} as Record<number, { release_id: number; release_name: string; criteria: typeof pending; hasRequired: boolean }>);
+
+                  const releases = Object.values(grouped).slice(0, 5);
+
+                  return releases.map((release) => (
+                    <li key={release.release_id}>
+                      <Link
+                        to={`/releases/${release.release_id}`}
+                        className="flex items-center justify-between p-2 rounded hover:bg-muted"
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{release.release_name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {release.criteria.length} criteria pending
+                          </span>
+                        </div>
+                        {release.hasRequired && (
+                          <span className="text-xs text-destructive">Required</span>
+                        )}
+                      </Link>
+                    </li>
+                  ));
+                })()}
+                {Object.keys(pending.reduce((acc, item) => ({ ...acc, [item.release_id]: true }), {})).length > 5 && (
                   <li className="text-sm text-muted-foreground text-center pt-2">
-                    +{pending.length - 5} more
+                    +more releases
                   </li>
                 )}
               </ul>

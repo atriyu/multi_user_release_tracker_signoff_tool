@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { StatusBadge } from './StatusBadge';
 import { format } from 'date-fns';
 import type { Release } from '@/types';
-import { Calendar, Package } from 'lucide-react';
+import { Calendar, Package, Hash } from 'lucide-react';
 
 interface ReleaseCardProps {
   release: Release;
@@ -31,11 +31,17 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
               {release.description}
             </p>
           )}
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
             {release.target_date && (
               <span className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
                 {format(new Date(release.target_date), 'MMM d, yyyy')}
+              </span>
+            )}
+            {release.candidate_build && (
+              <span className="flex items-center gap-1">
+                <Hash className="h-3 w-3" />
+                {release.candidate_build}
               </span>
             )}
             <span>Created {format(new Date(release.created_at), 'MMM d, yyyy')}</span>

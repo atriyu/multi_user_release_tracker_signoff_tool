@@ -262,12 +262,12 @@ export function SignOffMatrix({ releaseId, releaseStatus }: SignOffMatrixProps) 
                               <div className={`flex items-center justify-center ${stakeholderCount > 10 ? 'gap-1' : 'gap-1.5'}`}>
                                 {signoff.link && (
                                   <a
-                                    href={signoff.link}
+                                    href={signoff.link.startsWith('http') ? signoff.link : `https://${signoff.link}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     onClick={(e) => e.stopPropagation()}
                                     className="hover:scale-110 transition-transform"
-                                    title={`Open link: ${new URL(signoff.link).hostname}`}
+                                    title={`Open link: ${signoff.link}`}
                                   >
                                     <Link2 className={
                                       stakeholderCount > 12 ? 'h-2.5 w-2.5' :

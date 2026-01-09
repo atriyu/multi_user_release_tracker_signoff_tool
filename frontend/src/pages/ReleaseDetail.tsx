@@ -12,7 +12,7 @@ import { ReleaseCriteriaManager } from '@/components/release/ReleaseCriteriaMana
 import { useRelease, useUpdateRelease, useDeleteRelease, useProducts } from '@/hooks';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
-import { ArrowLeft, Calendar, Package, CheckCircle, Trash2, XCircle, Pencil, Check, X } from 'lucide-react';
+import { ArrowLeft, Calendar, Package, CheckCircle, Trash2, XCircle, Pencil, Check, X, Hash } from 'lucide-react';
 import type { ReleaseStatus } from '@/types';
 
 export function ReleaseDetail() {
@@ -28,6 +28,8 @@ export function ReleaseDetail() {
 
   const [isEditingTargetDate, setIsEditingTargetDate] = useState(false);
   const [targetDateValue, setTargetDateValue] = useState('');
+  const [isEditingCandidateBuild, setIsEditingCandidateBuild] = useState(false);
+  const [candidateBuildValue, setCandidateBuildValue] = useState('');
 
   const handleStatusChange = (newStatus: ReleaseStatus) => {
     updateRelease.mutate({ id: releaseId, data: { status: newStatus } });
@@ -77,6 +79,27 @@ export function ReleaseDetail() {
   const handleCancelTargetDate = () => {
     setIsEditingTargetDate(false);
     setTargetDateValue('');
+  };
+
+  const handleEditCandidateBuild = () => {
+    setCandidateBuildValue(release?.candidate_build || '');
+    setIsEditingCandidateBuild(true);
+  };
+
+  const handleSaveCandidateBuild = () => {
+    updateRelease.mutate(
+      { id: releaseId, data: { candidate_build: candidateBuildValue || '' } },
+      {
+        onSuccess: () => {
+          setIsEditingCandidateBuild(false);
+        },
+      }
+    );
+  };
+
+  const handleCancelCandidateBuild = () => {
+    setIsEditingCandidateBuild(false);
+    setCandidateBuildValue('');
   };
 
   if (isLoading) {
@@ -165,6 +188,52 @@ export function ReleaseDetail() {
                     className="h-5 w-5 ml-1"
                     onClick={handleEditTargetDate}
                     title="Edit target date"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                )}
+              </span>
+            )}
+            {/* Candidate Build - Editable for Draft and In Review */}
+            {isEditingCandidateBuild ? (
+              <div className="flex items-center gap-2">
+                <Hash className="h-4 w-4" />
+                <Input
+                  value={candidateBuildValue}
+                  onChange={(e) => setCandidateBuildValue(e.target.value)}
+                  placeholder="Enter build identifier"
+                  className="h-7 w-56 text-sm"
+                  autoFocus
+                />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={handleSaveCandidateBuild}
+                  disabled={updateRelease.isPending}
+                >
+                  <Check className="h-3 w-3" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={handleCancelCandidateBuild}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <span className="flex items-center gap-1">
+                <Hash className="h-4 w-4" />
+                Build: {release.candidate_build || 'Not set'}
+                {canEdit && (release.status === 'draft' || release.status === 'in_review') && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-5 w-5 ml-1"
+                    onClick={handleEditCandidateBuild}
+                    title="Edit candidate build"
                   >
                     <Pencil className="h-3 w-3" />
                   </Button>

@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.release import Release, ReleaseCriteria, ReleaseStatus, CriteriaStatus
+from app.models.release_stakeholder import ReleaseStakeholder
+from app.models.signoff import SignOff, SignOffStatus
 from app.dependencies import RequireAnyRole
 
 router = APIRouter()
@@ -13,27 +16,52 @@ async def get_my_pending_signoffs(
     current_user: RequireAnyRole,
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(ReleaseCriteria)
+    # Find releases where the current user is a stakeholder
+    stakeholder_result = await db.execute(
+        select(ReleaseStakeholder.release_id).where(
+            ReleaseStakeholder.user_id == current_user.id
+        )
+    )
+    stakeholder_release_ids = [r[0] for r in stakeholder_result.all()]
+
+    if not stakeholder_release_ids:
+        return []
+
+    # Get all criteria for those releases that are in review
+    criteria_result = await db.execute(
+        select(ReleaseCriteria, Release)
         .join(Release)
+        .options(selectinload(ReleaseCriteria.sign_offs))
         .where(
-            ReleaseCriteria.owner_id == current_user.id,
-            ReleaseCriteria.status == CriteriaStatus.PENDING,
+            ReleaseCriteria.release_id.in_(stakeholder_release_ids),
             Release.is_deleted == False,
-            Release.status.in_([ReleaseStatus.DRAFT, ReleaseStatus.IN_REVIEW]),
+            Release.status == ReleaseStatus.IN_REVIEW,  # Only show for releases in review
         )
         .order_by(Release.target_date.asc().nullslast())
     )
-    criteria_list = result.scalars().all()
+    all_rows = criteria_result.all()
+
+    # Filter to criteria where user hasn't signed off (or sign-off was revoked)
+    pending_items = []
+    for criteria, release in all_rows:
+        # Check if user has an active (non-revoked) sign-off for this criteria
+        user_signoffs = [
+            so for so in criteria.sign_offs
+            if so.signed_by_id == current_user.id and so.status != SignOffStatus.REVOKED
+        ]
+        if not user_signoffs:
+            pending_items.append((criteria, release))
 
     return [
         {
             "criteria_id": c.id,
             "criteria_name": c.name,
             "release_id": c.release_id,
+            "release_name": r.name,
+            "release_version": r.version,
             "is_mandatory": c.is_mandatory,
         }
-        for c in criteria_list
+        for c, r in pending_items
     ]
 
 

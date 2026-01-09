@@ -44,6 +44,7 @@ class ReleaseBase(BaseModel):
     name: str
     description: Optional[str] = None
     target_date: Optional[date] = None
+    candidate_build: Optional[str] = None
 
 
 class ReleaseCreate(ReleaseBase):
@@ -57,6 +58,7 @@ class ReleaseUpdate(BaseModel):
     description: Optional[str] = None
     status: Optional[ReleaseStatus] = None
     target_date: Optional[date] = None
+    candidate_build: Optional[str] = None
 
 
 class ReleaseResponse(ReleaseBase):

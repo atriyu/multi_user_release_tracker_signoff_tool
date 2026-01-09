@@ -25,6 +25,7 @@ export function CreateRelease() {
     name: '',
     description: '',
     target_date: '',
+    candidate_build: '',
   });
 
   const { data: products } = useProducts();
@@ -51,6 +52,7 @@ export function CreateRelease() {
         template_id: templateId || undefined,
         ...formData,
         target_date: formData.target_date || undefined,
+        candidate_build: formData.candidate_build || undefined,
       },
       {
         onSuccess: (release) => {
@@ -172,6 +174,16 @@ export function CreateRelease() {
                   className="mt-1"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Candidate Build</label>
+              <Input
+                value={formData.candidate_build}
+                onChange={(e) => setFormData({ ...formData, candidate_build: e.target.value })}
+                placeholder="e.g., build-2024.01.15-abc123"
+                className="mt-1"
+              />
             </div>
 
             <div>

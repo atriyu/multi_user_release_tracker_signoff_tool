@@ -62,6 +62,7 @@ export function useAddReleaseCriteria() {
     onSuccess: (_, { releaseId }) => {
       queryClient.invalidateQueries({ queryKey: ['release', releaseId] });
       queryClient.invalidateQueries({ queryKey: ['releases'] });
+      queryClient.invalidateQueries({ queryKey: ['signOffMatrix', releaseId] });
       queryClient.invalidateQueries({ queryKey: ['audit', 'release', releaseId] });
     },
   });
@@ -79,6 +80,7 @@ export function useUpdateReleaseCriteria() {
     onSuccess: (_, { releaseId }) => {
       queryClient.invalidateQueries({ queryKey: ['release', releaseId] });
       queryClient.invalidateQueries({ queryKey: ['releases'] });
+      queryClient.invalidateQueries({ queryKey: ['signOffMatrix', releaseId] });
       queryClient.invalidateQueries({ queryKey: ['audit', 'release', releaseId] });
     },
   });
@@ -93,6 +95,7 @@ export function useDeleteReleaseCriteria() {
     onSuccess: (_, { releaseId }) => {
       queryClient.invalidateQueries({ queryKey: ['release', releaseId] });
       queryClient.invalidateQueries({ queryKey: ['releases'] });
+      queryClient.invalidateQueries({ queryKey: ['signOffMatrix', releaseId] });
       queryClient.invalidateQueries({ queryKey: ['audit', 'release', releaseId] });
     },
   });

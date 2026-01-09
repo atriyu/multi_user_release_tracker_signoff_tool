@@ -20,7 +20,8 @@ export function ReleaseList() {
 
   const filteredReleases = releases?.filter((release) =>
     release.name.toLowerCase().includes(search.toLowerCase()) ||
-    release.version.toLowerCase().includes(search.toLowerCase())
+    release.version.toLowerCase().includes(search.toLowerCase()) ||
+    (release.candidate_build && release.candidate_build.toLowerCase().includes(search.toLowerCase()))
   );
 
   const statusOptions: { value: ReleaseStatus | ''; label: string }[] = [

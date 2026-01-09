@@ -34,6 +34,7 @@ def release_to_dict(release: Release) -> dict:
         "name": release.name,
         "status": release.status.value if release.status else None,
         "target_date": str(release.target_date) if release.target_date else None,
+        "candidate_build": release.candidate_build,
     }
 
 

@@ -113,6 +113,7 @@ export interface Release {
   description: string | null;
   status: ReleaseStatus;
   target_date: string | null;
+  candidate_build: string | null;
   released_at: string | null;
   created_by_id: number | null;
   created_at: string;
@@ -144,6 +145,8 @@ export interface PendingSignOff {
   criteria_id: number;
   criteria_name: string;
   release_id: number;
+  release_name: string;
+  release_version: string;
   is_mandatory: boolean;
 }
 

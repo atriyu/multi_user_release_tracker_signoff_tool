@@ -226,6 +226,7 @@ The frontend stores the current user ID in localStorage and includes it in all A
 - [Quick Start Guide](./QUICK_START_GUIDE.md) - Get up and running quickly
 - [User Guide](./USER_GUIDE.md) - Comprehensive usage documentation
 - [Deployment Playbook](./DEPLOYMENT_PLAYBOOK.md) - Production deployment guide for GCP and private cloud
+- [GCP Deployment Commands](./GCP_DEPLOYMENT_COMMANDS.md) - Actual commands executed for GCP deployment
 - [API Documentation](./BACKEND_API_DOCUMENTATION.md) - Backend API reference
 
 ## Development

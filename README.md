@@ -101,19 +101,27 @@ release-tracker/
 
 ## Permission System
 
-### User Roles
+The Release Tracker uses a **product-based permission model**:
 
-| Role | Description | Capabilities |
-|------|-------------|--------------|
-| **System Admin** | Full system access | All operations, user management, grant permissions |
-| **Product Owner** | Product-level management | Create releases, assign stakeholders, manage templates |
-| **Stakeholder** | Sign-off participant | Sign off on assigned criteria |
+### Permission Levels
 
-### Permission Flow
+| Level | Scope | Capabilities |
+|-------|-------|--------------|
+| **System Admin** | Global | Full access to all products, users, and settings |
+| **Product Owner** | Per-product | Manage releases and assign stakeholders for assigned products |
+| **Stakeholder** | Per-release | Sign off on criteria for assigned releases |
 
-1. **Admins** can grant Product Owner permissions to users
-2. **Product Owners** can manage releases for their products and assign stakeholders
-3. **Stakeholders** can only sign off on releases they are assigned to
+### How Permissions Work
+
+1. **System Admins** have full access to everything
+2. **Product Owner permission** is granted **per product** by an admin
+   - A user can be product owner for multiple products
+   - Product owners can only manage releases for products they have permission for
+3. **Stakeholders** are assigned **per release** by product owners or admins
+   - The release creator is automatically assigned as a stakeholder
+   - Stakeholders can only sign off on releases they are assigned to
+
+See [User Guide - Permission Model](./USER_GUIDE.md#understanding-the-permission-model) for detailed documentation.
 
 ## Multi-User Approval Workflow
 
@@ -217,6 +225,7 @@ The frontend stores the current user ID in localStorage and includes it in all A
 
 - [Quick Start Guide](./QUICK_START_GUIDE.md) - Get up and running quickly
 - [User Guide](./USER_GUIDE.md) - Comprehensive usage documentation
+- [Deployment Playbook](./DEPLOYMENT_PLAYBOOK.md) - Production deployment guide for GCP and private cloud
 - [API Documentation](./BACKEND_API_DOCUMENTATION.md) - Backend API reference
 
 ## Development

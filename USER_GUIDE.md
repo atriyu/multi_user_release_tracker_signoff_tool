@@ -7,13 +7,14 @@ A comprehensive guide to managing releases and sign-off workflows.
 1. [Getting Started](#getting-started)
 2. [Dashboard Overview](#dashboard-overview)
 3. [Setting Up Products & Templates](#setting-up-products--templates)
-4. [Managing Users & Permissions](#managing-users--permissions)
-5. [Creating a Release](#creating-a-release)
-6. [Stakeholder Assignment](#stakeholder-assignment)
-7. [Sign-off Workflow](#sign-off-workflow)
-8. [Sign-Off Matrix](#sign-off-matrix)
-9. [Viewing Release Status](#viewing-release-status)
-10. [Audit & History](#audit--history)
+4. [Understanding the Permission Model](#understanding-the-permission-model)
+5. [Managing Users & Permissions](#managing-users--permissions)
+6. [Creating a Release](#creating-a-release)
+7. [Stakeholder Assignment](#stakeholder-assignment)
+8. [Sign-off Workflow](#sign-off-workflow)
+9. [Sign-Off Matrix](#sign-off-matrix)
+10. [Viewing Release Status](#viewing-release-status)
+11. [Audit & History](#audit--history)
 
 ---
 
@@ -179,17 +180,60 @@ Custom criteria are sorted alphabetically after predefined criteria.
 
 ---
 
+## Understanding the Permission Model
+
+The Release Tracker uses a **product-based permission model** with three levels of access:
+
+### Permission Levels
+
+| Level | How Assigned | Scope | Capabilities |
+|-------|--------------|-------|--------------|
+| **System Admin** | User setting | Global | Full access to all products, users, and settings |
+| **Product Owner** | Per-product by admin | Specific products | Manage releases and assign stakeholders for assigned products |
+| **Stakeholder** | Per-release | Specific releases | Sign off on criteria for assigned releases |
+
+### Key Concepts
+
+1. **System Admins** have full access to everything. They can:
+   - Create/manage products
+   - Grant product owner permissions to users
+   - Manage all releases across all products
+   - Assign stakeholders to any release
+
+2. **Product Owner Permission** is granted **per product**:
+   - An admin assigns product owner permission to a user for a specific product
+   - A user can have product owner permission for **multiple products**
+   - Product owners can only manage releases for products they have permission for
+   - Product owners can assign other users as stakeholders to their releases
+
+3. **Stakeholders** are assigned **per release**:
+   - Product owners (or admins) assign stakeholders to individual releases
+   - The **release creator is automatically assigned** as a stakeholder
+   - Stakeholders can only sign off on releases they are assigned to
+   - A user can be a stakeholder on multiple releases
+
+### Example Workflow
+
+1. Admin creates a product "Mobile App"
+2. Admin grants **Product Owner** permission for "Mobile App" to Alice and Bob
+3. Alice creates a release for "Mobile App" (Alice is auto-assigned as stakeholder)
+4. Alice assigns Charlie and David as additional stakeholders
+5. Charlie and David can now sign off on criteria for that release
+6. Bob (as product owner) can also manage the release and assign more stakeholders
+
+---
+
 ## Managing Users & Permissions
 
 **Navigation:** Settings → Users (`/settings/users`)
 
-### User Types
+### User Indicators
 
-| Type | Badge | Description |
-|------|-------|-------------|
-| **System Admin** | Red | Full access to all products and releases |
-| **Product Owner** | Blue | Can manage releases for assigned products |
-| **User** | Gray | Can be assigned as stakeholder for releases |
+| Indicator | Meaning |
+|-----------|---------|
+| **Admin** (Red badge) | System administrator with full access |
+| **Product Owner** (Blue badge) | Has product owner permission for one or more products |
+| No badge | Regular user (can be assigned as stakeholder) |
 
 ### Adding a User
 
@@ -197,27 +241,38 @@ Custom criteria are sorted alphabetically after predefined criteria.
 2. Enter details:
    - **Name** (required)
    - **Email** (required)
-   - **System Administrator** checkbox (optional)
+   - **System Administrator** checkbox (grants full admin access)
 3. Click **Add User**
 
-### Grant Product Owner Permission (Admin Only)
+### Managing Product Owner Permissions
 
-1. Find the user in the list
-2. Click **Grant Access** in the Product Owner column
-3. User can now manage releases for all products
+Product owner permissions are managed **per product**, not globally.
 
-### Revoke Product Owner Permission (Admin Only)
+**To grant product owner permission:**
 
-1. Find the user with Product Owner badge
-2. Click the **Product Owner** button
-3. Confirm revocation
+1. Navigate to **Products** → Select a product
+2. Click **Manage Owners**
+3. Click **Add Owner**
+4. Select users to grant permission
+5. Click **Add**
+
+These users can now manage releases for this specific product.
+
+**To revoke product owner permission:**
+
+1. Navigate to **Products** → Select a product
+2. Click **Manage Owners**
+3. Click the remove icon next to the user
+4. Confirm revocation
 
 ### Deactivating a User
 
-1. Click the deactivate icon
+1. Click the deactivate icon next to the user
 2. Confirm deactivation
 
-Deactivated users cannot be assigned as stakeholders but historical sign-offs are preserved.
+Deactivated users:
+- Cannot log in or be assigned as stakeholders
+- Historical sign-offs are preserved in the audit trail
 
 ---
 

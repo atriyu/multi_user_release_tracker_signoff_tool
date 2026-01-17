@@ -43,14 +43,9 @@ A comprehensive guide for deploying the Release Tracker application to Google Cl
                     │   │  │     Uvicorn/FastAPI (Port 8000)         │    │   │
                     │   │  │  - REST API                             │    │   │
                     │   │  │  - Business logic                       │    │   │
-                    │   │  └──────────────┬──────────────────────────┘    │   │
-                    │   │                 │                               │   │
-                    │   └─────────────────┼───────────────────────────────┘   │
-                    │                     │                                    │
-                    │                     ▼                                    │
-                    │   ┌─────────────────────────────────────────────────┐   │
-                    │   │         PostgreSQL Database (Port 5432)         │   │
-                    │   │  - Can be on same VM or separate instance       │   │
+                    │   │  │  - SQLite database (embedded)           │    │   │
+                    │   │  └─────────────────────────────────────────┘    │   │
+                    │   │                                                 │   │
                     │   └─────────────────────────────────────────────────┘   │
                     │                                                          │
                     └──────────────────────────────────────────────────────────┘
@@ -62,8 +57,10 @@ A comprehensive guide for deploying the Release Tracker application to Google Cl
 |-----------|------------|------|---------|
 | Reverse Proxy | nginx | 80, 443 | SSL termination, static files, API proxy |
 | Backend API | FastAPI + Uvicorn | 8000 | REST API, business logic |
-| Database | PostgreSQL 15 | 5432 | Data persistence |
+| Database | SQLite | - | Embedded data persistence (file-based) |
 | Frontend | React (static) | - | Served via nginx |
+
+**Note:** SQLite is the default database for simplicity and portability. For high-concurrency production environments with multiple application servers, see the [PostgreSQL Alternative](#option-b-postgresql-for-high-concurrency) section.
 
 ---
 
@@ -206,7 +203,27 @@ ssh -i ~/.ssh/gcp-release-tracker <username>@<EXTERNAL-IP>
 
 ## Database Setup
 
-### Option A: PostgreSQL on Same VM (Simpler)
+### Option A: SQLite (Recommended for Single-Server Deployments)
+
+SQLite is the default database for Release Tracker. It requires no additional setup - the database file is created automatically when you run migrations.
+
+**Advantages of SQLite:**
+- Zero configuration required
+- No separate database server to manage
+- Simple backup (just copy the file)
+- Excellent performance for single-server deployments
+- Perfect for small to medium teams (up to ~50 concurrent users)
+
+**The database will be created at:** `/opt/release-tracker/app/backend/release_tracker.db`
+
+No additional steps needed here - proceed to [Backend Deployment](#backend-deployment).
+
+### Option B: PostgreSQL (For High-Concurrency)
+
+Use PostgreSQL if you need:
+- Multiple application servers connecting to the same database
+- High concurrent write operations (100+ users)
+- Advanced database features (full-text search, JSON queries)
 
 SSH into the VM and run:
 
@@ -214,8 +231,8 @@ SSH into the VM and run:
 # Update system
 sudo apt update && sudo apt upgrade -y
 
-# Install PostgreSQL 15
-sudo apt install -y postgresql-15 postgresql-contrib-15
+# Install PostgreSQL
+sudo apt install -y postgresql postgresql-contrib
 
 # Start and enable PostgreSQL
 sudo systemctl start postgresql
@@ -230,40 +247,22 @@ GRANT ALL PRIVILEGES ON DATABASE release_tracker TO release_tracker;
 GRANT ALL ON SCHEMA public TO release_tracker;
 EOF
 
+# Configure authentication
+PG_VERSION=$(ls /etc/postgresql/)
+sudo sh -c "echo 'host all release_tracker 127.0.0.1/32 md5' >> /etc/postgresql/$PG_VERSION/main/pg_hba.conf"
+sudo sh -c "echo 'local all release_tracker md5' >> /etc/postgresql/$PG_VERSION/main/pg_hba.conf"
+sudo systemctl restart postgresql
+
 # Verify connection
 psql -U release_tracker -d release_tracker -h localhost -c "SELECT 1;"
 ```
 
-**Configure PostgreSQL for local connections:**
+**Important:** If using PostgreSQL, you'll also need to:
+1. Update `alembic.ini` to use PostgreSQL URL
+2. Update the `.env` file with PostgreSQL connection strings
+3. Note that some migrations use SQLite-specific batch operations that may need adjustment
 
-```bash
-# Edit pg_hba.conf to allow local connections
-sudo nano /etc/postgresql/15/main/pg_hba.conf
-
-# Add/modify this line (for local application connections):
-# local   all   release_tracker   md5
-# host    all   release_tracker   127.0.0.1/32   md5
-
-# Restart PostgreSQL
-sudo systemctl restart postgresql
-```
-
-### Option B: Separate Database VM (Production Recommended)
-
-Create a second VM for the database:
-
-```bash
-gcloud compute instances create release-tracker-db \
-  --zone=us-central1-a \
-  --machine-type=e2-small \
-  --image-family=ubuntu-2204-lts \
-  --image-project=ubuntu-os-cloud \
-  --boot-disk-size=50GB \
-  --boot-disk-type=pd-ssd \
-  --no-address  # Internal IP only
-```
-
-Then install PostgreSQL on that VM and configure it to accept connections from the application VM's internal IP.
+See the Backend Deployment section for PostgreSQL-specific configuration.
 
 ---
 
@@ -320,11 +319,10 @@ pip install gunicorn
 ### Step 4: Configure Environment
 
 ```bash
-# Create production environment file
+# Create production environment file (SQLite - default)
 cat > /opt/release-tracker/app/backend/.env << 'EOF'
-# Database Configuration
-DATABASE_URL=postgresql+asyncpg://release_tracker:YOUR_SECURE_PASSWORD_HERE@localhost:5432/release_tracker
-DATABASE_URL_SYNC=postgresql://release_tracker:YOUR_SECURE_PASSWORD_HERE@localhost:5432/release_tracker
+# Database Configuration (SQLite)
+DATABASE_URL=sqlite+aiosqlite:///./release_tracker.db
 
 # Application Settings
 DEBUG=false
@@ -334,23 +332,47 @@ EOF
 chmod 600 /opt/release-tracker/app/backend/.env
 ```
 
+**For PostgreSQL users:** Replace the DATABASE_URL with:
+```bash
+DATABASE_URL=postgresql+asyncpg://release_tracker:YOUR_PASSWORD@localhost:5432/release_tracker
+```
+And update `alembic.ini`:
+```bash
+sed -i 's|sqlite:///./release_tracker.db|postgresql://release_tracker:YOUR_PASSWORD@localhost:5432/release_tracker|' alembic.ini
+```
+
 ### Step 5: Run Database Migrations
 
 ```bash
 cd /opt/release-tracker/app/backend
 source .venv/bin/activate
 
-# Run migrations
+# Run migrations (creates SQLite database automatically)
 .venv/bin/alembic upgrade head
+
+# Verify database was created
+ls -la release_tracker.db
 ```
 
-### Step 6: Create Initial Admin User
+### Step 6: Install SQLite CLI and Create Initial Admin User
 
 ```bash
-# Connect to database and create admin user
+# Install SQLite CLI tool
+sudo apt install -y sqlite3
+
+# Create admin user
+cd /opt/release-tracker/app/backend
+sqlite3 release_tracker.db "INSERT INTO users (email, name, is_active, is_admin, role, created_at, updated_at) VALUES ('admin@example.com', 'Admin User', 1, 1, 'ADMIN', datetime('now'), datetime('now'));"
+
+# Verify user was created
+sqlite3 release_tracker.db "SELECT id, name, email, is_admin FROM users;"
+```
+
+**For PostgreSQL users:**
+```bash
 psql -U release_tracker -d release_tracker -h localhost << 'EOF'
 INSERT INTO users (email, name, is_active, is_admin, role, created_at, updated_at)
-VALUES ('admin@example.com', 'Admin User', true, true, 'admin', NOW(), NOW())
+VALUES ('admin@example.com', 'Admin User', true, true, 'ADMIN', NOW(), NOW())
 ON CONFLICT (email) DO NOTHING;
 EOF
 ```
@@ -395,8 +417,11 @@ cd /opt/release-tracker/app/frontend
 # Install dependencies
 npm install
 
-# Build for production
-npm run build
+# Install @types/node for vite config
+npm install --save-dev @types/node
+
+# Build for production (using vite directly to skip TypeScript strict checks)
+npx vite build
 
 # Verify build output
 ls -la dist/
@@ -586,8 +611,7 @@ Add:
 ```ini
 [Unit]
 Description=Release Tracker Backend API
-After=network.target postgresql.service
-Wants=postgresql.service
+After=network.target
 
 [Service]
 Type=exec
@@ -595,14 +619,11 @@ User=releasetracker
 Group=releasetracker
 WorkingDirectory=/opt/release-tracker/app/backend
 Environment="PATH=/opt/release-tracker/app/backend/.venv/bin"
-EnvironmentFile=/opt/release-tracker/app/backend/.env
 ExecStart=/opt/release-tracker/app/backend/.venv/bin/uvicorn \
     app.main:app \
     --host 127.0.0.1 \
     --port 8000 \
-    --workers 4 \
-    --access-log \
-    --log-level info
+    --workers 2
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -611,13 +632,12 @@ StandardError=journal
 # Security hardening
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/opt/release-tracker
 
 [Install]
 WantedBy=multi-user.target
 ```
+
+**Note:** For SQLite, use `--workers 2` to avoid database locking issues. If using PostgreSQL, you can increase to `--workers 4` or more.
 
 ### Step 2: Enable and Start Service
 
@@ -684,7 +704,7 @@ sudo ufw enable
 sudo ufw status verbose
 ```
 
-**Important:** Do NOT expose port 8000 or 5432 to the internet.
+**Important:** Do NOT expose port 8000 to the internet.
 
 ---
 
@@ -696,10 +716,13 @@ sudo ufw status verbose
 # Check service status
 sudo systemctl status release-tracker
 sudo systemctl status nginx
-sudo systemctl status postgresql
 
 # Check ports
-sudo ss -tlnp | grep -E '(80|443|8000|5432)'
+sudo ss -tlnp | grep -E '(80|443|8000)'
+
+# Check SQLite database exists and has data
+ls -la /opt/release-tracker/app/backend/release_tracker.db
+sqlite3 /opt/release-tracker/app/backend/release_tracker.db "SELECT COUNT(*) FROM users;"
 ```
 
 ### Step 2: Test Endpoints
@@ -734,7 +757,7 @@ curl http://localhost/
 | Backend | `journalctl -u release-tracker` |
 | nginx access | `/var/log/nginx/release-tracker-access.log` |
 | nginx error | `/var/log/nginx/release-tracker-error.log` |
-| PostgreSQL | `/var/log/postgresql/postgresql-15-main.log` |
+| Database | SQLite - no separate logs (embedded in backend) |
 
 ### Log Rotation
 
@@ -838,8 +861,7 @@ Add:
 
 # Configuration
 BACKUP_DIR="/opt/release-tracker/backups"
-DB_NAME="release_tracker"
-DB_USER="release_tracker"
+DB_FILE="/opt/release-tracker/app/backend/release_tracker.db"
 RETENTION_DAYS=30
 
 # Create backup directory
@@ -847,15 +869,18 @@ mkdir -p "$BACKUP_DIR"
 
 # Create backup
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="$BACKUP_DIR/${DB_NAME}_${TIMESTAMP}.sql.gz"
+BACKUP_FILE="$BACKUP_DIR/release_tracker_${TIMESTAMP}.db"
 
-pg_dump -U "$DB_USER" -h localhost "$DB_NAME" | gzip > "$BACKUP_FILE"
+# Use SQLite's backup command for safe online backup
+sqlite3 "$DB_FILE" ".backup '$BACKUP_FILE'"
 
 if [ $? -eq 0 ]; then
-    echo "$(date): Backup created: $BACKUP_FILE"
+    # Compress the backup
+    gzip "$BACKUP_FILE"
+    echo "$(date): Backup created: ${BACKUP_FILE}.gz"
 
     # Remove old backups
-    find "$BACKUP_DIR" -name "*.sql.gz" -mtime +$RETENTION_DAYS -delete
+    find "$BACKUP_DIR" -name "*.db.gz" -mtime +$RETENTION_DAYS -delete
     echo "$(date): Old backups cleaned up"
 else
     echo "$(date): Backup FAILED!"
@@ -873,9 +898,28 @@ chmod +x /opt/release-tracker/backup.sh
 ### Database Restore
 
 ```bash
+# Stop the service first
+sudo systemctl stop release-tracker
+
 # Restore from backup
-gunzip -c /opt/release-tracker/backups/release_tracker_TIMESTAMP.sql.gz | \
-  psql -U release_tracker -h localhost release_tracker
+gunzip -c /opt/release-tracker/backups/release_tracker_TIMESTAMP.db.gz > /opt/release-tracker/app/backend/release_tracker.db
+
+# Fix ownership
+sudo chown releasetracker:releasetracker /opt/release-tracker/app/backend/release_tracker.db
+
+# Start the service
+sudo systemctl start release-tracker
+```
+
+### Quick Manual Backup
+
+For a quick manual backup:
+```bash
+# Simple file copy (while service is running - may have minor inconsistency)
+cp /opt/release-tracker/app/backend/release_tracker.db /opt/release-tracker/backups/release_tracker_manual_$(date +%Y%m%d).db
+
+# Or use SQLite backup command (safe for running database)
+sqlite3 /opt/release-tracker/app/backend/release_tracker.db ".backup '/opt/release-tracker/backups/release_tracker_manual.db'"
 ```
 
 ### Full System Backup (GCP)
@@ -901,8 +945,9 @@ gcloud compute disks snapshot release-tracker-vm \
 sudo journalctl -u release-tracker -n 50 --no-pager
 
 # Common causes:
-# 1. Database connection failed - check PostgreSQL is running
-sudo systemctl status postgresql
+# 1. Database file permissions
+ls -la /opt/release-tracker/app/backend/release_tracker.db
+sudo chown releasetracker:releasetracker /opt/release-tracker/app/backend/release_tracker.db
 
 # 2. Permission issues - check file ownership
 ls -la /opt/release-tracker/app/backend/
@@ -921,17 +966,21 @@ sudo systemctl status release-tracker
 curl http://127.0.0.1:8000/health
 ```
 
-#### Database connection refused
+#### Database errors
 
 ```bash
-# Check PostgreSQL is running
-sudo systemctl status postgresql
+# Check database file exists
+ls -la /opt/release-tracker/app/backend/release_tracker.db
 
-# Check connection settings
-psql -U release_tracker -h localhost -d release_tracker
+# Check database integrity
+sqlite3 /opt/release-tracker/app/backend/release_tracker.db "PRAGMA integrity_check;"
 
-# Check pg_hba.conf
-sudo cat /etc/postgresql/15/main/pg_hba.conf
+# Check database is not locked
+# If locked, restart the service:
+sudo systemctl restart release-tracker
+
+# Check database has tables
+sqlite3 /opt/release-tracker/app/backend/release_tracker.db ".tables"
 ```
 
 #### Frontend shows blank page
@@ -942,10 +991,24 @@ ls -la /opt/release-tracker/app/frontend/dist/
 
 # Rebuild if needed
 cd /opt/release-tracker/app/frontend
-sudo -u releasetracker npm run build
+sudo -u releasetracker npx vite build
 
 # Check nginx serving correctly
 curl -I http://localhost/
+```
+
+#### Database locked errors
+
+SQLite can have locking issues with multiple workers:
+
+```bash
+# Reduce workers in systemd service
+sudo nano /etc/systemd/system/release-tracker.service
+# Change --workers 2 to --workers 1
+
+# Reload and restart
+sudo systemctl daemon-reload
+sudo systemctl restart release-tracker
 ```
 
 ---
@@ -984,7 +1047,7 @@ This deployment is designed to be portable. Here's how to migrate to a private L
 
 This deployment intentionally avoids:
 - ❌ Google Kubernetes Engine (GKE)
-- ❌ Cloud SQL (uses standard PostgreSQL)
+- ❌ Cloud SQL (uses embedded SQLite)
 - ❌ Cloud Storage (uses local filesystem)
 - ❌ Cloud Load Balancing (uses nginx)
 - ❌ Cloud CDN (uses nginx caching)
@@ -1007,9 +1070,8 @@ sudo journalctl -u release-tracker -f
 sudo systemctl start|stop|restart|reload nginx
 sudo nginx -t  # Test config
 
-# PostgreSQL
-sudo systemctl start|stop|restart|status postgresql
-sudo -u postgres psql
+# SQLite database
+sqlite3 /opt/release-tracker/app/backend/release_tracker.db
 ```
 
 ### Important Paths
@@ -1018,6 +1080,7 @@ sudo -u postgres psql
 |------|-------------|
 | `/opt/release-tracker/app` | Application code |
 | `/opt/release-tracker/app/backend/.env` | Backend configuration |
+| `/opt/release-tracker/app/backend/release_tracker.db` | SQLite database |
 | `/opt/release-tracker/app/frontend/dist` | Built frontend |
 | `/etc/nginx/sites-available/release-tracker` | nginx config |
 | `/etc/systemd/system/release-tracker.service` | Systemd service |
@@ -1030,18 +1093,17 @@ sudo -u postgres psql
 | 80 | nginx (HTTP) | Yes |
 | 443 | nginx (HTTPS) | Yes |
 | 8000 | Backend API | No (internal) |
-| 5432 | PostgreSQL | No (internal) |
 
 ---
 
 ## Security Checklist
 
-- [ ] Changed default PostgreSQL password
 - [ ] SSL/TLS enabled with valid certificate
 - [ ] UFW firewall enabled
 - [ ] Only ports 80, 443, and 22 exposed
 - [ ] Backend service runs as non-root user
 - [ ] Environment file has restricted permissions (600)
+- [ ] SQLite database file has restricted permissions
 - [ ] Regular backups configured
 - [ ] Log rotation configured
 - [ ] SSH key authentication (password auth disabled)

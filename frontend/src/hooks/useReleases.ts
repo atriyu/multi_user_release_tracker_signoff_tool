@@ -37,6 +37,7 @@ export function useUpdateRelease() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['releases'] });
       queryClient.invalidateQueries({ queryKey: ['release', id] });
+      queryClient.invalidateQueries({ queryKey: ['signOffMatrix', id] });
       queryClient.invalidateQueries({ queryKey: ['audit', 'release', id] });
     },
   });

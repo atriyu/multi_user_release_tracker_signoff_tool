@@ -1,0 +1,34 @@
+# Systemd service for Release Tracker Backend
+# Copy to /etc/systemd/system/release-tracker.service
+#
+# After copying, run:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable release-tracker
+#   sudo systemctl start release-tracker
+
+[Unit]
+Description=Release Tracker Backend API
+After=network.target
+
+[Service]
+Type=exec
+User=releasetracker
+Group=releasetracker
+WorkingDirectory=/opt/release-tracker/app/backend
+Environment="PATH=/opt/release-tracker/app/backend/.venv/bin"
+ExecStart=/opt/release-tracker/app/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/release-tracker/app/backend
+ReadWritePaths=/opt/release-tracker/data
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,187 @@
+name: Deploy to GCP
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: 'Deployment target'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - backend-only
+          - frontend-only
+
+env:
+  GCP_ZONE: us-central1-a
+  VM_NAME: release-tracker-vm
+  APP_DIR: /opt/release-tracker/app
+  APP_USER: releasetracker
+
+jobs:
+  deploy:
+    name: Deploy Release Tracker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure SSH
+        run: |
+          # Add VM to known hosts
+          gcloud compute config-ssh --quiet
+
+          # Test SSH connectivity
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="echo 'SSH connection successful'" \
+            --quiet
+
+      - name: Determine deployment target
+        id: target
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "target=${{ github.event.inputs.deploy_target }}" >> $GITHUB_OUTPUT
+          else
+            echo "target=all" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Pull latest code on VM
+        run: |
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="
+              sudo git config --global --add safe.directory ${{ env.APP_DIR }} 2>/dev/null || true
+              cd ${{ env.APP_DIR }} && sudo git fetch origin main && sudo git reset --hard origin/main
+            "
+
+      - name: Deploy Backend
+        if: steps.target.outputs.target == 'all' || steps.target.outputs.target == 'backend-only'
+        run: |
+          # Update backend .env
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="
+              sudo tee ${{ env.APP_DIR }}/backend/.env > /dev/null << 'ENVEOF'
+          DATABASE_URL=sqlite+aiosqlite:///./release_tracker.db
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          DEBUG=false
+          ENVEOF
+            "
+
+          # Install dependencies
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="
+              cd ${{ env.APP_DIR }}/backend && \
+              sudo -u ${{ env.APP_USER }} .venv/bin/pip install -q -r requirements.txt
+            "
+
+      - name: Run Database Migrations
+        if: steps.target.outputs.target == 'all' || steps.target.outputs.target == 'backend-only'
+        run: |
+          echo "Creating pre-migration backup..."
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="
+              BACKUP_FILE=release_tracker_pre_migration_\$(date +%Y%m%d_%H%M%S).db
+              sudo -u ${{ env.APP_USER }} cp ${{ env.APP_DIR }}/backend/release_tracker.db /opt/release-tracker/backups/\${BACKUP_FILE} 2>/dev/null || true
+            "
+
+          echo "Running migrations..."
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="
+              cd ${{ env.APP_DIR }}/backend && \
+              sudo -u ${{ env.APP_USER }} .venv/bin/alembic upgrade head
+            "
+
+      - name: Restart Backend Service
+        if: steps.target.outputs.target == 'all' || steps.target.outputs.target == 'backend-only'
+        run: |
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="sudo systemctl restart release-tracker"
+
+          # Wait for service to start
+          sleep 5
+
+          # Verify service is running
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="sudo systemctl is-active release-tracker"
+
+      - name: Deploy Frontend
+        if: steps.target.outputs.target == 'all' || steps.target.outputs.target == 'frontend-only'
+        run: |
+          # Create frontend .env
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="
+              echo 'VITE_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}' | \
+              sudo tee ${{ env.APP_DIR }}/frontend/.env > /dev/null
+            "
+
+          # Install dependencies and build
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="
+              cd ${{ env.APP_DIR }}/frontend && \
+              sudo npm ci --silent 2>/dev/null || sudo npm install --silent && \
+              sudo npm run build 2>&1 || sudo npx vite build
+            "
+
+          # Set ownership
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="
+              sudo chown -R ${{ env.APP_USER }}:${{ env.APP_USER }} ${{ env.APP_DIR }}/frontend/dist
+            "
+
+      - name: Health Check
+        run: |
+          echo "Checking backend service..."
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="sudo systemctl is-active release-tracker"
+
+          echo "Checking health endpoint..."
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="curl -sf http://localhost:8000/health"
+
+          echo "Checking frontend..."
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="curl -sf -o /dev/null http://localhost/"
+
+          echo "All health checks passed!"
+
+      - name: Get Deployment URL
+        run: |
+          EXTERNAL_IP=$(gcloud compute instances describe ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+
+          echo "## Deployment Complete! :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Application URL:** http://${EXTERNAL_IP}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Application URL (nip.io):** http://${EXTERNAL_IP}.nip.io" >> $GITHUB_STEP_SUMMARY

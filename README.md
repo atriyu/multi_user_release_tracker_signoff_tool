@@ -264,6 +264,7 @@ X-User-Id: 123
 - [User Guide](./USER_GUIDE.md) - Comprehensive usage documentation
 - [Deployment Playbook](./DEPLOYMENT_PLAYBOOK.md) - Production deployment guide for GCP and private cloud
 - [GCP Deployment Commands](./GCP_DEPLOYMENT_COMMANDS.md) - Actual commands executed for GCP deployment
+- [Google OAuth Setup](./GOOGLE_OAUTH_SETUP.md) - Configure Google authentication
 - [API Documentation](./BACKEND_API_DOCUMENTATION.md) - Backend API reference
 
 ## Development

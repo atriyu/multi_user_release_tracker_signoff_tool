@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
-from app.api import products, templates, releases, signoffs, stakeholders, dashboard, audit, users, product_permissions, user_permissions
+from app.api import products, templates, releases, signoffs, stakeholders, dashboard, audit, users, product_permissions, user_permissions, auth
 
 settings = get_settings()
 
@@ -24,6 +24,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth.router, prefix=settings.api_prefix, tags=["Authentication"])
 app.include_router(products.router, prefix=settings.api_prefix, tags=["Products"])
 app.include_router(templates.router, prefix=settings.api_prefix, tags=["Templates"])
 app.include_router(releases.router, prefix=settings.api_prefix, tags=["Releases"])

@@ -212,14 +212,51 @@ GET /api/audit?entity_type=release&action=update&limit=50
 
 ## Authentication
 
-The application uses a simplified header-based authentication for development:
+The application supports Google OAuth authentication with JWT tokens.
+
+### Setting Up Google OAuth
+
+1. **Create OAuth Credentials in Google Cloud Console:**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select an existing one
+   - Navigate to **APIs & Services > Credentials**
+   - Click **Create Credentials > OAuth client ID**
+   - Select **Web application**
+   - Add authorized JavaScript origins (e.g., `http://localhost:5173`, `http://your-domain.com`)
+   - Add authorized redirect URIs if needed
+   - Copy the **Client ID** and **Client Secret**
+
+2. **Configure Backend Environment:**
+   ```bash
+   # backend/.env
+   GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=your-client-secret
+   SECRET_KEY=your-secure-random-secret-key
+   ```
+
+3. **Configure Frontend Environment:**
+   ```bash
+   # frontend/.env
+   VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+   ```
+
+### Authentication Flow
+
+1. Users sign in with their Google account
+2. New users are automatically created on first sign-in
+3. JWT tokens are issued and stored in the browser
+4. Admins can impersonate other users via the user switcher dropdown
+
+### API Authentication
 
 ```bash
-# Include user ID in requests
-X-User-Id: 1
-```
+# Include JWT token in requests
+Authorization: Bearer <jwt-token>
 
-The frontend stores the current user ID in localStorage and includes it in all API requests.
+# Admin impersonation (requires admin JWT + X-User-Id header)
+Authorization: Bearer <admin-jwt-token>
+X-User-Id: 123
+```
 
 ## Documentation
 

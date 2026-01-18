@@ -9,3 +9,4 @@ export { TemplateEditor } from './TemplateEditor';
 export { CreateTemplate } from './CreateTemplate';
 export { UserManager } from './UserManager';
 export { AuditLog } from './AuditLog';
+export { Login } from './Login';

@@ -32,6 +32,10 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    # Google OAuth fields
+    google_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    avatar_url: Mapped[str] = mapped_column(String(500), nullable=True)
+
     # DEPRECATED: Kept for backward compatibility during migration
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, native_enum=False), default=UserRole.STAKEHOLDER, nullable=True

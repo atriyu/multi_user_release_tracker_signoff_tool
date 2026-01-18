@@ -5,33 +5,74 @@ except ImportError:
     from typing_extensions import Annotated
 
 from fastapi import Depends, HTTPException, status, Header
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.user import User, UserRole
+from app.utils.jwt import get_user_id_from_token
+
+# Optional bearer token security scheme
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
     x_user_id: Annotated[Optional[int], Header()] = None,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """
-    Get the current user from request header.
+    Get the current user from JWT token or X-User-Id header.
 
-    NOTE: This is a simplified implementation for development/demo purposes.
-    In production, this would parse JWT tokens, validate sessions, or
-    integrate with OAuth/OIDC providers.
+    Authentication methods (in order of precedence):
+    1. JWT Bearer token (Authorization: Bearer <token>)
+    2. X-User-Id header (for admin impersonation when authenticated)
 
-    For now, we use X-User-Id header for development purposes.
+    For admin impersonation:
+    - If both JWT and X-User-Id are provided, the JWT-authenticated user must be an admin
+    - The X-User-Id is then used to impersonate another user
     """
-    if x_user_id is None:
+    user_id = None
+    is_impersonating = False
+    jwt_user = None
+
+    # Try JWT authentication first
+    if credentials and credentials.credentials:
+        jwt_user_id = get_user_id_from_token(credentials.credentials)
+        if jwt_user_id:
+            # Valid JWT token
+            result = await db.execute(select(User).where(User.id == jwt_user_id))
+            jwt_user = result.scalar_one_or_none()
+
+            if jwt_user and jwt_user.is_active:
+                # Check if admin is trying to impersonate via X-User-Id
+                if x_user_id and x_user_id != jwt_user_id and jwt_user.is_admin:
+                    # Admin impersonation
+                    user_id = x_user_id
+                    is_impersonating = True
+                else:
+                    user_id = jwt_user_id
+
+    # Fall back to X-User-Id header only (legacy/development mode)
+    if user_id is None and x_user_id is not None:
+        user_id = x_user_id
+
+    if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="X-User-Id header required",
+            detail="Authentication required. Provide a valid JWT token or X-User-Id header.",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
-    result = await db.execute(select(User).where(User.id == x_user_id))
-    user = result.scalar_one_or_none()
+    # Fetch the target user
+    if is_impersonating:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+    else:
+        user = jwt_user if jwt_user and jwt_user.id == user_id else None
+        if not user:
+            result = await db.execute(select(User).where(User.id == user_id))
+            user = result.scalar_one_or_none()
 
     if not user:
         raise HTTPException(

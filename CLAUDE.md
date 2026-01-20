@@ -94,3 +94,30 @@ Frontend (`frontend/.env`):
 ```
 VITE_GOOGLE_CLIENT_ID=...
 ```
+
+## Deployment
+
+### GCP Deployment
+- Scripts in `deploy/scripts/` for GCP VM deployment
+- Uses gcloud CLI for remote operations
+- GitHub Actions workflow in `.github/workflows/deploy.yml`
+
+### Private Cloud / On-Premise Deployment
+- Scripts in `deploy/private-cloud/` for Ubuntu VMs
+- `provision.sh` - One-time VM setup (installs packages, creates users, configures services)
+- `deploy.sh` - Reusable deployment (git pull, migrations, build, restart)
+- `env.example` - Configuration template
+
+```bash
+# Initial setup
+sudo ./deploy/private-cloud/provision.sh
+
+# Deploy updates
+cd /opt/release-tracker/app
+sudo ./deploy/private-cloud/deploy.sh
+sudo ./deploy/private-cloud/deploy.sh --branch feature-xyz
+sudo ./deploy/private-cloud/deploy.sh --tag v1.2.0
+sudo ./deploy/private-cloud/deploy.sh --backend-only
+```
+
+See `deploy/private-cloud/README.md` for detailed instructions.

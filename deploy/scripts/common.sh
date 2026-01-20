@@ -1,21 +1,38 @@
 #!/bin/bash
 # Common variables and functions for deployment scripts
+#
+# This file contains shared utilities used by both GCP and private cloud deployments.
+# Source this file from your deployment scripts.
 
-# Configuration - can be overridden by environment variables
-export GCP_PROJECT="${GCP_PROJECT:-}"
-export GCP_ZONE="${GCP_ZONE:-us-central1-a}"
-export VM_NAME="${VM_NAME:-release-tracker-vm}"
+# =============================================================================
+# Shared Configuration (can be overridden by environment variables)
+# =============================================================================
+
 export APP_DIR="${APP_DIR:-/opt/release-tracker/app}"
 export APP_USER="${APP_USER:-releasetracker}"
 export DOMAIN="${DOMAIN:-}"
 
-# Colors for output
+# =============================================================================
+# GCP-Specific Configuration
+# =============================================================================
+
+export GCP_PROJECT="${GCP_PROJECT:-}"
+export GCP_ZONE="${GCP_ZONE:-us-central1-a}"
+export VM_NAME="${VM_NAME:-release-tracker-vm}"
+
+# =============================================================================
+# Terminal Colors
+# =============================================================================
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Logging functions
+# =============================================================================
+# Logging Functions (used by all deployments)
+# =============================================================================
+
 log() {
     echo -e "${GREEN}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $1"
 }
@@ -31,6 +48,53 @@ error() {
 die() {
     error "$1"
     exit 1
+}
+
+# =============================================================================
+# Validation Functions (used by all deployments)
+# =============================================================================
+
+# Check if required environment variables are set
+check_required_vars() {
+    local missing=0
+    for var in "$@"; do
+        if [[ -z "${!var}" ]]; then
+            error "Required environment variable ${var} is not set"
+            missing=1
+        fi
+    done
+    if [[ $missing -eq 1 ]]; then
+        exit 1
+    fi
+}
+
+# Check if a variable is set and not a placeholder
+check_configured_vars() {
+    local missing=0
+    for var in "$@"; do
+        if [[ -z "${!var}" || "${!var}" == "<"* ]]; then
+            error "Required variable ${var} is not configured"
+            missing=1
+        fi
+    done
+    if [[ $missing -eq 1 ]]; then
+        exit 1
+    fi
+}
+
+# =============================================================================
+# GCP-Specific Functions
+# =============================================================================
+
+# Validate gcloud is configured
+check_gcloud() {
+    if ! command -v gcloud &> /dev/null; then
+        die "gcloud CLI is not installed"
+    fi
+
+    if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | head -1 | grep -q '@'; then
+        die "gcloud is not authenticated. Run 'gcloud auth login'"
+    fi
 }
 
 # Run command on remote VM via gcloud SSH
@@ -53,29 +117,4 @@ copy_to_remote() {
     gcloud compute scp "${src}" "${VM_NAME}:${dest}" \
         --zone="${GCP_ZONE}" \
         --quiet
-}
-
-# Check if required environment variables are set
-check_required_vars() {
-    local missing=0
-    for var in "$@"; do
-        if [[ -z "${!var}" ]]; then
-            error "Required environment variable ${var} is not set"
-            missing=1
-        fi
-    done
-    if [[ $missing -eq 1 ]]; then
-        exit 1
-    fi
-}
-
-# Validate gcloud is configured
-check_gcloud() {
-    if ! command -v gcloud &> /dev/null; then
-        die "gcloud CLI is not installed"
-    fi
-
-    if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | head -1 | grep -q '@'; then
-        die "gcloud is not authenticated. Run 'gcloud auth login'"
-    fi
 }

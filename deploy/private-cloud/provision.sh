@@ -158,7 +158,7 @@ else
 fi
 
 # Create directory structure
-mkdir -p /opt/release-tracker/{app,backups,config}
+mkdir -p /opt/release-tracker/{app,backups,config,data}
 
 # Set initial ownership
 chown -R "${APP_USER}:${APP_USER}" /opt/release-tracker

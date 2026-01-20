@@ -39,7 +39,7 @@ async def list_templates(
 )
 async def create_template(
     template: TemplateCreate,
-    current_user: RequireAdmin,
+    current_user: RequireAdminOrProductOwner,
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new template."""

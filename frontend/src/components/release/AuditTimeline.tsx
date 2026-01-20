@@ -108,14 +108,14 @@ export function AuditTimeline({ releaseId }: AuditTimelineProps) {
               <span>{format(new Date(entry.timestamp), 'MMM d, yyyy HH:mm')}</span>
               {entry.actor_name && <span>by {entry.actor_name}</span>}
             </div>
-            {entry.new_value?.comment && (
+            {!!entry.new_value?.comment && (
               <p className="text-sm text-muted-foreground mt-1 italic">
-                "{entry.new_value.comment}"
+                "{String(entry.new_value.comment)}"
               </p>
             )}
-            {entry.new_value?.link && (
+            {!!entry.new_value?.link && (
               <a
-                href={entry.new_value.link}
+                href={String(entry.new_value.link)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-primary hover:underline mt-1 inline-block"

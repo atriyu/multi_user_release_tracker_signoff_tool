@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useCreateTemplate, useUsers } from '@/hooks';
-import { ArrowLeft, Plus, Trash2, CheckSquare, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, CheckSquare, ChevronUp } from 'lucide-react';
 
 interface CriteriaItem {
   name: string;
@@ -62,7 +62,7 @@ const PREDEFINED_CRITERIA = [
 export function CreateTemplate() {
   const navigate = useNavigate();
 
-  const { data: users } = useUsers();
+  useUsers(); // Preload users for potential future use
   const createTemplate = useCreateTemplate();
 
   const [name, setName] = useState('');

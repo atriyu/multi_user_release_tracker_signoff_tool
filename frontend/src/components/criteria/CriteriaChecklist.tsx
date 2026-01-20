@@ -9,10 +9,9 @@ import { Check, X, RotateCcw, AlertCircle, ExternalLink } from 'lucide-react';
 
 interface CriteriaChecklistProps {
   criteria: ReleaseCriteria[];
-  releaseId: number;
 }
 
-export function CriteriaChecklist({ criteria, releaseId }: CriteriaChecklistProps) {
+export function CriteriaChecklist({ criteria }: CriteriaChecklistProps) {
   const [selectedCriteria, setSelectedCriteria] = useState<ReleaseCriteria | null>(null);
   const [signOffAction, setSignOffAction] = useState<'approve' | 'reject' | null>(null);
 

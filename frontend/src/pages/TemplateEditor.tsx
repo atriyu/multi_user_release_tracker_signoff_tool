@@ -72,7 +72,7 @@ export function TemplateEditor() {
   const id = Number(templateId);
 
   const { data: template, isLoading } = useTemplate(id);
-  const { data: users } = useUsers();
+  useUsers(); // Preload users for potential future use
   const updateTemplate = useUpdateTemplate();
   const deleteTemplate = useDeleteTemplate();
   const addCriteria = useAddTemplateCriteria();
@@ -137,7 +137,7 @@ export function TemplateEditor() {
 
       const hasCriteriaChanges =
         localCriteria.length !== originalCriteria.length ||
-        localCriteria.some((lc, idx) => {
+        localCriteria.some((lc) => {
           const oc = originalCriteria.find(o => o.id === lc.id);
           if (!oc && !lc._deleted) return true; // New criteria
           if (lc._deleted) return true; // Deleted criteria
@@ -168,8 +168,6 @@ export function TemplateEditor() {
 
       // Handle criteria changes
       if (template) {
-        const originalCriteriaIds = new Set(template.criteria.map(c => c.id));
-
         // Delete removed criteria
         for (const origCriteria of template.criteria) {
           const stillExists = localCriteria.some(lc => lc.id === origCriteria.id && !lc._deleted);
@@ -402,7 +400,7 @@ export function TemplateEditor() {
         <CardContent>
           {sortedCriteria.length > 0 ? (
             <div className="space-y-3">
-              {sortedCriteria.map((criteria, index) => (
+              {sortedCriteria.map((criteria) => (
                 <div
                   key={criteria.id}
                   className="flex items-start gap-3 p-4 border rounded-lg"

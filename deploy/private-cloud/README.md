@@ -323,9 +323,11 @@ sudo npx tsc --noEmit
 
 ### OAuth Not Working
 
-1. Verify redirect URIs in Google Cloud Console match your server
-2. Check that `GOOGLE_CLIENT_ID` is set in both backend and frontend .env
-3. Ensure `VITE_GOOGLE_CLIENT_ID` matches `GOOGLE_CLIENT_ID`
+1. **For local VMs:** Google OAuth doesn't allow bare IP addresses. Use port forwarding to localhost (see "Local Development with Multipass" section)
+2. **For production:** Verify redirect URIs in Google Cloud Console match your domain
+3. Check that `GOOGLE_CLIENT_ID` is set in both backend and frontend .env
+4. Ensure `VITE_GOOGLE_CLIENT_ID` matches `GOOGLE_CLIENT_ID`
+5. Add both **Authorized JavaScript origins** and **Authorized redirect URIs** in Google Cloud Console
 
 ## Security Considerations
 
@@ -359,6 +361,80 @@ sudo certbot --nginx -d your-domain.com
 - Never commit `.env` files to git
 - Rotate `SECRET_KEY` periodically
 - Use strong OAuth credentials
+
+## Local Development with Multipass
+
+For testing on macOS/Linux using [Multipass](https://multipass.run/) VMs.
+
+### Initial Setup
+
+```bash
+# Install multipass (macOS)
+brew install --cask multipass
+
+# Launch Ubuntu 22.04 VM
+multipass launch 22.04 --name release-tracker-test --cpus 2 --memory 1G --disk 10G
+
+# Get VM IP address
+multipass info release-tracker-test | grep IPv4
+```
+
+Then follow the standard setup: download scripts, create `.env`, run `provision.sh`.
+
+### Port Forwarding for OAuth
+
+Google OAuth doesn't allow bare IP addresses. Use localhost port forwarding:
+
+```bash
+# Install socat (macOS)
+brew install socat
+
+# Forward localhost:3000 to VM port 80
+socat TCP-LISTEN:3000,fork,reuseaddr TCP:<vm-ip>:80 &
+```
+
+Access the app at **http://localhost:3000**
+
+In Google Cloud Console, add:
+- **Authorized JavaScript origins:** `http://localhost:3000`
+- **Authorized redirect URIs:** `http://localhost:3000/api/auth/callback`
+
+### Stop/Start VM
+
+```bash
+# Stop VM and port forwarding (frees memory)
+pkill -f "socat.*3000"
+multipass stop release-tracker-test
+
+# Start VM and restore port forwarding
+multipass start release-tracker-test
+socat TCP-LISTEN:3000,fork,reuseaddr TCP:<vm-ip>:80 &
+```
+
+Services (`release-tracker` and `nginx`) start automatically when the VM boots - no need to re-run deploy scripts.
+
+### Delete VM
+
+```bash
+pkill -f "socat.*3000"
+multipass delete release-tracker-test && multipass purge
+```
+
+### Quick Reference
+
+```bash
+# Shell into VM
+multipass shell release-tracker-test
+
+# View backend logs
+multipass exec release-tracker-test -- sudo journalctl -u release-tracker -f
+
+# Restart services
+multipass exec release-tracker-test -- sudo systemctl restart release-tracker
+
+# Check health
+curl http://localhost:3000/health
+```
 
 ## PostgreSQL (Optional)
 

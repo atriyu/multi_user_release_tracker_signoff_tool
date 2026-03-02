@@ -39,5 +39,6 @@ htmlcov/
 # Database
 *.db
 
-# Claude Code
-.claude/
+# Claude Code - ignore everything except skills (shared project knowledge)
+.claude/*
+!.claude/skills/

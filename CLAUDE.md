@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Release Tracker is a full-stack release management application with multi-user approval workflows. Users can create releases with criteria, assign stakeholders, and collect sign-offs through a visual matrix interface.
 
+## Skills (invoke before starting work)
+
+- Before writing or reviewing code, invoke `/guidelines` for coding conventions and best practices.
+- Before planning features or making design decisions, invoke `/architecture` for the domain model and key assumptions.
+- Before deploying or modifying deployment scripts, invoke `/deploy-guide` for the deployment checklist and operations guide.
+
 ## Development Commands
 
 ### Backend (FastAPI + Python)
